@@ -1,0 +1,19 @@
+.root { -fx-font-family: "Microsoft YaHei UI", "Segoe UI"; -fx-font-size: 14px; -fx-background-color: #f4f7fb; }
+.header { -fx-padding: 18px 26px; -fx-background-color: #12345b; }
+.app-title { -fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: white; }
+.app-subtitle { -fx-text-fill: #d8e7f7; }
+.section-title { -fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #16283d; }
+.card { -fx-background-color: white; -fx-background-radius: 12px; -fx-padding: 26px; -fx-effect: dropshadow(gaussian, rgba(18,52,91,.12), 18, 0, 0, 4); }
+.button { -fx-min-height: 40px; -fx-padding: 8px 18px; -fx-background-radius: 7px; -fx-cursor: hand; }
+.primary-button { -fx-background-color: #1769aa; -fx-text-fill: white; -fx-font-weight: bold; }
+.primary-button:hover { -fx-background-color: #0e568f; }
+.text-field, .combo-box { -fx-min-height: 40px; -fx-background-radius: 6px; }
+.timer { -fx-font-size: 30px; -fx-font-weight: bold; -fx-text-fill: #c6462d; -fx-min-width: 110px; }
+.help-text { -fx-text-fill: #526579; }
+.about-text { -fx-font-size: 16px; -fx-line-spacing: 7px; -fx-text-fill: #2b3d50; }
+.table-view { -fx-background-radius: 8px; -fx-border-color: #d8e1ea; -fx-border-radius: 8px; }
+.table-view .column-header-background { -fx-background-color: #e8f0f8; }
+.table-row-cell { -fx-cell-size: 44px; }
+.tab-pane .tab { -fx-min-height: 42px; -fx-padding: 4px 18px; }
+.status-bar { -fx-padding: 10px 24px; -fx-background-color: #e6f3ea; -fx-text-fill: #24643a; }
+.status-bar:error { -fx-background-color: #fbe8e5; -fx-text-fill: #9d2d21; }
