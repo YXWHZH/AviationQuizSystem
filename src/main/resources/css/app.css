@@ -1,19 +1,67 @@
-.root { -fx-font-family: "Microsoft YaHei UI", "Segoe UI"; -fx-font-size: 14px; -fx-background-color: #f4f7fb; }
+.root { -fx-font-family: "Microsoft YaHei UI", "Segoe UI"; -fx-font-size: 14px; -fx-background-color: #f4f8fd; }
+.aviation-header { -fx-padding: 13px 25px; -fx-background-color: linear-gradient(to right, #073f78, #087fc5); -fx-min-height: 76px; }
+.brand-title { -fx-font-size: 23px; -fx-font-weight: bold; -fx-text-fill: white; }
+.brand-subtitle { -fx-font-size: 12px; -fx-text-fill: #d9efff; }
+.aviation-header > .label { -fx-text-fill: white; }
+.aviation-header .button { -fx-background-color: rgba(255,255,255,.13); -fx-text-fill: white; -fx-border-color: rgba(255,255,255,.28); -fx-border-radius: 6px; }
+.aviation-header .primary-button { -fx-background-color: white; -fx-text-fill: #0874b8; }
 .header { -fx-padding: 18px 26px; -fx-background-color: #12345b; }
 .app-title { -fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: white; }
 .app-subtitle { -fx-text-fill: #d8e7f7; }
-.section-title { -fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #16283d; }
+.section-title { -fx-font-size: 22px; -fx-font-weight: bold; -fx-text-fill: #11385d; }
 .card { -fx-background-color: white; -fx-background-radius: 12px; -fx-padding: 26px; -fx-effect: dropshadow(gaussian, rgba(18,52,91,.12), 18, 0, 0, 4); }
 .button { -fx-min-height: 40px; -fx-padding: 8px 18px; -fx-background-radius: 7px; -fx-cursor: hand; }
 .primary-button { -fx-background-color: #1769aa; -fx-text-fill: white; -fx-font-weight: bold; }
 .primary-button:hover { -fx-background-color: #0e568f; }
+.auth-page { -fx-background-color: #dff2ff; }
+.auth-card { -fx-min-width: 410px; -fx-max-width: 410px; -fx-padding: 30px 36px; }
+.auth-scroll, .auth-scroll > .viewport { -fx-background-color: transparent; }
+.form-section-title { -fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #0a6ca8; -fx-padding: 10px 0 0 0; }
+.profile-value { -fx-font-size: 16px; -fx-font-weight: bold; }
+.auth-card .text-field, .auth-card .password-field { -fx-min-height: 44px; -fx-border-color: #c9dbea; -fx-border-radius: 6px; -fx-background-color: white; }
+.link-button { -fx-background-color: transparent; -fx-text-fill: #0a72b5; }
+.detail-copy { -fx-font-size: 15px; -fx-line-spacing: 5px; }
+.lobby-content { -fx-padding: 0; }
+.competition-banner { -fx-background-color: #e9f6ff; -fx-background-radius: 8px; -fx-border-radius: 8px; -fx-min-height: 0; }
+.competition-banner .image-view { -fx-effect: dropshadow(gaussian, rgba(8,75,125,.12), 10, 0, 0, 2); }
+.split-pane { -fx-background-color: transparent; -fx-padding: 0; }
+.split-pane-divider { -fx-background-color: transparent; -fx-padding: 0 5px; }
+.player-shell { -fx-background-color: #f4f8fd; }
+.player-pages > .tab-header-area { visibility: hidden; -fx-max-height: 0; -fx-pref-height: 0; }
+.player-pages { -fx-tab-max-height: 0; -fx-padding: 0; }
+.player-pages > .tab-content-area { -fx-background-color: #f4f8fd; }
+.nav-button { -fx-background-color: transparent !important; -fx-border-color: transparent !important; -fx-font-weight: bold; }
+.nav-button:hover { -fx-background-color: rgba(255,255,255,.13) !important; }
+.nav-active { -fx-border-color: transparent transparent white transparent !important; -fx-border-width: 0 0 3px 0 !important; }
+.dashboard-home { -fx-padding: 28px 40px; }
+.stat-card { -fx-padding: 18px 22px; -fx-min-width: 190px; }
+.stat-card .section-title { -fx-font-size: 30px; -fx-text-fill: #0877bb; }
 .text-field, .combo-box { -fx-min-height: 40px; -fx-background-radius: 6px; }
 .timer { -fx-font-size: 30px; -fx-font-weight: bold; -fx-text-fill: #c6462d; -fx-min-width: 110px; }
 .help-text { -fx-text-fill: #526579; }
 .about-text { -fx-font-size: 16px; -fx-line-spacing: 7px; -fx-text-fill: #2b3d50; }
 .table-view { -fx-background-radius: 8px; -fx-border-color: #d8e1ea; -fx-border-radius: 8px; }
-.table-view .column-header-background { -fx-background-color: #e8f0f8; }
+.table-view .column-header-background { -fx-background-color: #e8f4fc; }
+.table-view .column-header { -fx-background-color: transparent; -fx-size: 45px; }
+.table-row-cell:filled:selected { -fx-background-color: #d9edfb; -fx-table-cell-border-color: transparent; }
 .table-row-cell { -fx-cell-size: 44px; }
 .tab-pane .tab { -fx-min-height: 42px; -fx-padding: 4px 18px; }
 .status-bar { -fx-padding: 10px 24px; -fx-background-color: #e6f3ea; -fx-text-fill: #24643a; }
 .status-bar:error { -fx-background-color: #fbe8e5; -fx-text-fill: #9d2d21; }
+.error-text { -fx-text-fill: #9d2d21; -fx-font-weight: bold; }
+.table-row-cell:self { -fx-background-color: #dbeeff; -fx-font-weight: bold; }
+.table-row-cell:rank-top { -fx-background-color: #fff7d6; }
+.button:focused, .radio-button:focused { -fx-border-color: #1769aa; -fx-border-width: 2; -fx-border-radius: 6; }
+.radio-button { -fx-padding: 10; -fx-font-size: 16px; }
+.room-meta { -fx-font-weight: bold; -fx-text-fill: #286184; }
+.question-card { -fx-padding: 25px 30px; }
+.question-content { -fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: #133b5c; }
+.option-card { -fx-padding: 15px 18px; -fx-background-color: white; -fx-border-color: #d5e3ef; -fx-border-radius: 8px; -fx-background-radius: 8px; }
+.option-card:hover { -fx-border-color: #48a4dc; -fx-background-color: #f2faff; }
+.scroll-pane, .scroll-pane > .viewport { -fx-background-color: #f4f7fb; }
+.label { -fx-text-fill: #20364d; }
+.aviation-header .brand-title { -fx-text-fill: white; }
+.aviation-header .brand-subtitle { -fx-text-fill: #d9efff; }
+.label.error-text { -fx-text-fill: #9d2d21; }
+.label.timer { -fx-text-fill: #a52e20; }
+.participation-actions { -fx-padding: 12px; -fx-background-color: white; -fx-background-radius: 8px; -fx-border-color: #d8e1ea; -fx-border-radius: 8px; }
