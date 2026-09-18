@@ -229,6 +229,8 @@ class QuizWindowsTest {
                                             n ->
                                                     n instanceof TableView<?> t
                                                     && !t.getItems().isEmpty()));
+            assertEquals(javafx.geometry.Side.TOP, fx(() -> nodes(management.getScene().getRoot()).stream().filter(n -> n instanceof TabPane).map(n -> (TabPane) n).findFirst().orElseThrow().getSide()));
+            snapshot(management, "02-staff-console");
             fx(
                     () -> {
                         TableView<?> t =

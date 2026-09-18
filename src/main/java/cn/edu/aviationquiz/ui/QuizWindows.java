@@ -9,6 +9,7 @@ import javafx.application.Platform;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
+import javafx.geometry.Side;
 import javafx.scene.*;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
@@ -712,8 +713,16 @@ public final class QuizWindows {
                 navigation.getTabs().add(tab("竞赛浏览", competitionPage(false)));
                 navigation.getTabs().add(tab("题库管理", questionPage()));
                 navigation.getTabs().add(tab("历史成绩", historyPage()));
+                navigation.setSide(Side.TOP);
+                navigation.getStyleClass().add("staff-navigation");
                 VBox.setVgrow(navigation, Priority.ALWAYS);
-                root = page(bar(title("竞赛组织工作台"), label(session.name() + "（" + session.username() + "）"), button("退出登录", () -> logoutToLobby(this))), navigation, status);
+                Label eyebrow = label("航空知识竞赛 · 赛事运营中心"); eyebrow.getStyleClass().add("staff-eyebrow");
+                VBox identity = new VBox(2, title("竞赛组织工作台"), eyebrow);
+                Label account = label(session.name() + " · " + session.username()); account.getStyleClass().add("staff-account");
+                Button logout = button("退出登录", () -> logoutToLobby(this)); logout.getStyleClass().add("quiet-button");
+                Region spacer = new Region(); HBox.setHgrow(spacer, Priority.ALWAYS);
+                HBox top = new HBox(18, identity, spacer, account, logout); top.setAlignment(javafx.geometry.Pos.CENTER_LEFT); top.getStyleClass().add("staff-topbar");
+                root = new VBox(top, navigation, status); root.getStyleClass().add("staff-shell");
             } else {
                 navigation.getStyleClass().add("player-pages");
                 navigation.getTabs().addAll(
@@ -864,6 +873,7 @@ public final class QuizWindows {
                                             "description");
             ComboBox<String> categoryFilter = new ComboBox<>(FXCollections.observableArrayList("全部分类", "民航史", "飞行原理", "航空法规"));
             categoryFilter.setValue("全部分类");
+            Label total = label("—"), open = label("—"), running = label("—");
             Runnable refresh =
                     () ->
                             read(
@@ -874,10 +884,7 @@ public final class QuizWindows {
                                                             ? service.competitions()
                                                             : service.competitionsForPlayer(
                                                                     session),
-                                    v -> {
-                                        if (!disposed) rows(table, v.stream().filter(r -> categoryFilter.getValue().equals("全部分类")
-                                                || r.text("categories").contains(categoryFilter.getValue())).toList());
-                                    },
+                                    v -> { if (!disposed) { total.setText(String.valueOf(v.size())); open.setText(String.valueOf(v.stream().filter(r -> Set.of("未开放", "报名中", "报名截止").contains(r.text("status"))).count())); running.setText(String.valueOf(v.stream().filter(r -> r.text("status").equals("比赛中")).count())); rows(table, v.stream().filter(r -> categoryFilter.getValue().equals("全部分类") || r.text("categories").contains(categoryFilter.getValue())).toList()); } },
                                     status);
             categoryFilter.setOnAction(e -> refresh.run());
             refreshers.add(refresh);
@@ -897,7 +904,12 @@ public final class QuizWindows {
                                 button(
                                         "进入工作区",
                                         () -> safe(status, () -> workspace(selected(table)))));
-            if (session.staff()) return page(actions, table);
+            if (session.staff()) {
+                actions.getStyleClass().add("workspace-toolbar"); actions.getChildren().get(4).getStyleClass().add("primary-button");
+                HBox summary = new HBox(14, staffStat("全部竞赛", total, "当前已维护的赛事"), staffStat("待开赛", open, "报名及准备阶段"), staffStat("进行中", running, "正在进行的赛场"));
+                summary.getChildren().forEach(n -> HBox.setHgrow(n, Priority.ALWAYS));
+                VBox content = page(summary, title("竞赛中心"), label("集中维护赛程、报名状态与比赛工作区"), actions, table); content.getStyleClass().add("staff-page"); return content;
+            }
 
             Label operationHint = label("请先选择一场竞赛");
             Button
@@ -1003,6 +1015,10 @@ public final class QuizWindows {
                     .addListener((observable, oldValue, newValue) -> updateActions.run());
             updateActions.run();
             return page(actions, label("所选竞赛操作"), participationActions, operationHint, table);
+        }
+
+        VBox staffStat(String caption, Label value, String note) {
+            value.getStyleClass().add("staff-stat-value"); VBox card = new VBox(5, label(caption), value, label(note)); card.setMaxWidth(Double.MAX_VALUE); card.getStyleClass().add("staff-stat-card"); return card;
         }
 
 
@@ -1339,6 +1355,7 @@ public final class QuizWindows {
                                                             }),
                                     status);
             refreshers.add(update);
+            state.getStyleClass().add("competition-state");
             Node setup =
                     page(
                             label("报名按设定时间开放和截止。报名截止后方可分组。"),
@@ -1361,17 +1378,12 @@ public final class QuizWindows {
                                                                             session, cid,
                                                                             "报名截止")))),
                             peoplePage(cid, true));
-            openTab(
-                    "work" + cid,
-                    competition.text("name") + " · 工作区",
-                    page(
-                            heading,
-                            state,
-                            tabs(
-                                    tab("预约与报名状态", setup),
-                                    tab("报名与分组", peoplePage(cid, false)),
-                                    tab("轮次与题单", roundPage(cid)),
-                                    tab("比赛控制与成绩", controlPage(cid)))));
+            Button back = button("返回竞赛中心", () -> navigation.getSelectionModel().select(0)); back.getStyleClass().add("back-button");
+            VBox context = new VBox(4, heading, label("当前赛事工作区 · 按流程完成报名、编排、控制与归档")); Region spacer = new Region(); HBox.setHgrow(spacer, Priority.ALWAYS);
+            HBox workspaceHeader = new HBox(16, back, context, spacer, state); workspaceHeader.setAlignment(javafx.geometry.Pos.CENTER_LEFT); workspaceHeader.getStyleClass().add("workspace-header");
+            TabPane workTabs = tabs(tab("预约与报名状态", setup), tab("报名与分组", peoplePage(cid, false)), tab("轮次与题单", roundPage(cid)), tab("比赛控制与成绩", controlPage(cid))); workTabs.getStyleClass().add("workspace-tabs");
+            VBox content = page(workspaceHeader, workTabs); content.getStyleClass().addAll("staff-page", "workspace-page");
+            openTab("work" + cid, competition.text("name") + " · 工作区", content);
             refresh();
         }
 
@@ -1863,10 +1875,12 @@ public final class QuizWindows {
                             bar(preview, archive),
                             button("导出 CSV", () -> export(cid)));
             VBox monitoring = page(label("当前组提交情况"), monitor, label("全场排行榜"), ranks);
+            controls.getStyleClass().add("control-panel"); monitoring.getStyleClass().add("monitor-panel");
             SplitPane split = new SplitPane(scroll(controls), monitoring);
             split.setDividerPositions(.52);
+            split.getStyleClass().add("control-split");
             VBox.setVgrow(split, Priority.ALWAYS);
-            return page(progress, split);
+            VBox content = page(title("比赛控制台"), progress, split); content.getStyleClass().add("control-page"); return content;
         }
 
         void room(Row competition) {
