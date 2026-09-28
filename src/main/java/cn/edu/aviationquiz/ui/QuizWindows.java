@@ -135,6 +135,9 @@ public final class QuizWindows {
         stage.setMinWidth(650);
         stage.setMinHeight(540);
         stage.setScene(scene);
+        if (Boolean.parseBoolean(System.getProperty("quiz.maximized", "true"))) {
+            stage.setMaximized(true);
+        }
     }
 
     private void error(Label target, Throwable error) {
@@ -334,7 +337,6 @@ public final class QuizWindows {
         root.setTop(header(label("知航空 · 爱祖国 · 向未来"), signup, login,
                 button("工作人员登录", () -> accountForm(true, false)), setup));
         VBox center = page(title("正在进行的航空知识竞赛"), label("发现竞赛、查看赛程，登录后即可报名参赛"), content);
-        center.setMaxWidth(1440);
         center.setMaxHeight(Double.MAX_VALUE);
         VBox.setVgrow(content, Priority.ALWAYS);
         StackPane centered = new StackPane(center);
@@ -443,6 +445,7 @@ public final class QuizWindows {
         ScrollPane authScroll = scroll(cardHolder);
         authScroll.getStyleClass().add("auth-scroll");
         StackPane center = new StackPane(background, authScroll);
+        card.prefWidthProperty().bind(center.widthProperty().multiply(.38));
         background.fitWidthProperty().bind(center.widthProperty());
         background.fitHeightProperty().bind(center.heightProperty());
         root.setCenter(center);
@@ -533,7 +536,11 @@ public final class QuizWindows {
             grid.setHgap(16);
             grid.setVgap(10);
             body = page(QuizWindows.title(title), grid, status);
-            scene(stage, title, scroll(body), 620, 560);
+            body.getStyleClass().add("form-page");
+            StackPane holder = new StackPane(body);
+            holder.setPadding(new Insets(32));
+            holder.getStyleClass().add("form-holder");
+            scene(stage, title, scroll(holder), 620, 560);
         }
 
         void close() {
@@ -1381,7 +1388,7 @@ public final class QuizWindows {
             Button back = button("返回竞赛中心", () -> navigation.getSelectionModel().select(0)); back.getStyleClass().add("back-button");
             VBox context = new VBox(4, heading, label("当前赛事工作区 · 按流程完成报名、编排、控制与归档")); Region spacer = new Region(); HBox.setHgrow(spacer, Priority.ALWAYS);
             HBox workspaceHeader = new HBox(16, back, context, spacer, state); workspaceHeader.setAlignment(javafx.geometry.Pos.CENTER_LEFT); workspaceHeader.getStyleClass().add("workspace-header");
-            TabPane workTabs = tabs(tab("预约与报名状态", setup), tab("报名与分组", peoplePage(cid, false)), tab("轮次与题单", roundPage(cid)), tab("比赛控制与成绩", controlPage(cid))); workTabs.getStyleClass().add("workspace-tabs");
+            TabPane workTabs = tabs(tab("01  报名状态", setup), tab("02  分组编排", peoplePage(cid, false)), tab("03  轮次题单", roundPage(cid)), tab("04  现场控制", controlPage(cid))); workTabs.getStyleClass().add("workspace-tabs");
             VBox content = page(workspaceHeader, workTabs); content.getStyleClass().addAll("staff-page", "workspace-page");
             openTab("work" + cid, competition.text("name") + " · 工作区", content);
             refresh();
@@ -1496,8 +1503,6 @@ public final class QuizWindows {
                                     "时限（秒）",
                                     "time_limit"),
                     questions = table("题序", "sequence_no", "题干", "content");
-            rounds.setPrefHeight(180);
-            questions.setPrefHeight(220);
             Runnable update =
                     () -> read(() -> service.rounds(session, cid), v -> rows(rounds, v), status);
             refreshers.add(update);
@@ -1674,12 +1679,16 @@ public final class QuizWindows {
             Label progress = label("尚未开始"),
                     prompt = label(""),
                     timer = label(""),
-                    question = label("等待发布题目");
+                    question = label("等待发布题目"),
+                    pendingCount = label("等待赛场启动");
             timer.getStyleClass().add("timer");
+            progress.getStyleClass().add("live-progress");
+            question.getStyleClass().add("live-question");
+            pendingCount.getStyleClass().add("live-pending");
+            VBox liveBoard = new VBox(8, label("LIVE  现场态势"), progress, question, new HBox(26, timer, pendingCount));
+            liveBoard.getStyleClass().add("live-board");
             TableView<Row> monitor = table("选手", "name", "提交情况", "answer_status");
-            monitor.setPrefHeight(160);
             TableView<RankingEntry> ranks = rankingTable();
-            ranks.setPrefHeight(220);
             Button
                     start =
                             button(
@@ -1799,10 +1808,12 @@ public final class QuizWindows {
                                                         v.monitor().stream()
                                                                 .anyMatch(
                                                                         p ->
-                                                                                p.text(
+                                                                        p.text(
                                                                                                 "answer_status")
                                                                                         .equals(
-                                                                                                "待提交"));
+                                                                                        "待提交"));
+                                        liveBoard.setVisible(!ended);
+                                        liveBoard.setManaged(!ended);
                                         progress.setText(
                                                 v.competition().text("status")
                                                         + (gr == null
@@ -1821,6 +1832,8 @@ public final class QuizWindows {
                                         deadline[0] = qr == null ? 0 : qr.number("deadline");
                                         question.setText(
                                                 qr == null ? "当前无正在作答的题目" : qr.text("content"));
+                                        long waiting = v.monitor().stream().filter(p -> p.text("answer_status").equals("待提交")).count();
+                                        pendingCount.setText(qr == null ? "暂无待提交题目" : "待提交  " + waiting + " 人");
                                         timer.setText(
                                                 deadline[0] == 0
                                                         ? ""
@@ -1866,21 +1879,20 @@ public final class QuizWindows {
             refreshers.add(update);
             VBox controls =
                     page(
-                            bar(start, begin),
-                            bar(publish, close),
-                            finish,
-                            timer,
-                            question,
-                            prompt,
+                            label("赛事指令"),
+                            bar(start, begin, publish),
+                            bar(close, finish),
+                            label("赛后处理"),
                             bar(preview, archive),
-                            button("导出 CSV", () -> export(cid)));
+                            button("导出 CSV", () -> export(cid)),
+                            prompt);
             VBox monitoring = page(label("当前组提交情况"), monitor, label("全场排行榜"), ranks);
             controls.getStyleClass().add("control-panel"); monitoring.getStyleClass().add("monitor-panel");
             SplitPane split = new SplitPane(scroll(controls), monitoring);
             split.setDividerPositions(.52);
             split.getStyleClass().add("control-split");
             VBox.setVgrow(split, Priority.ALWAYS);
-            VBox content = page(title("比赛控制台"), progress, split); content.getStyleClass().add("control-page"); return content;
+            VBox content = page(liveBoard, split); content.getStyleClass().add("control-page"); return content;
         }
 
         void room(Row competition) {

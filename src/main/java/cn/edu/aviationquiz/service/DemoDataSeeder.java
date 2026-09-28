@@ -12,7 +12,7 @@ import java.util.stream.IntStream;
 public final class DemoDataSeeder {
     private static final String PASSWORD = "123456";
     private static final List<String> PLAYER_IDS =
-            IntStream.rangeClosed(1, 30).mapToObj(i -> "DEMO_P" + String.format("%02d", i)).toList();
+            IntStream.rangeClosed(1, 80).mapToObj(i -> "DEMO_P" + String.format("%02d", i)).toList();
     private static final List<String> PLAYER_NAMES = List.of(
             "张宇航", "李晨曦", "王浩然", "赵雨桐", "陈思远", "刘欣怡", "杨博文", "黄子涵", "周俊杰", "吴佳宁",
             "徐天佑", "孙梦琪", "胡嘉豪", "朱雅雯", "高明轩", "林诗涵", "何宇辰", "郭雨欣", "马睿哲", "罗心怡",
@@ -32,7 +32,7 @@ public final class DemoDataSeeder {
                                 PLAYER_IDS.get(i),
                                 "player0" + (i + 1),
                                 Passwords.hash(PASSWORD),
-                                PLAYER_NAMES.get(i),
+                                playerName(i),
                                 "13" + String.format("%09d", 800000000 + i),
                                 switch (i % 3) { case 0 -> "中国民航大学"; case 1 -> "中国民用航空飞行学院"; default -> "南京航空航天大学"; },
                                 switch (i % 3) { case 0 -> "航空工程学院"; case 1 -> "空中交通管理学院"; default -> "民航学院"; },
@@ -207,7 +207,7 @@ public final class DemoDataSeeder {
                     "INSERT OR IGNORE INTO group_assignment VALUES(?,?,?,?)",
                     "DEMO_GA_" + suffix + "_" + (i + 1),
                     registration,
-                    i < 3 ? groupA : groupB,
+                    i % 2 == 0 ? groupA : groupB,
                     time + 10_000 + i * 1_000);
         }
     }
@@ -256,6 +256,14 @@ public final class DemoDataSeeder {
 
     private static long days(long instant, int count) {
         return Instant.ofEpochMilli(instant).plus(count, ChronoUnit.DAYS).toEpochMilli();
+    }
+
+    private static String playerName(int index) {
+        if (index < PLAYER_NAMES.size()) return PLAYER_NAMES.get(index);
+        String[] surnames = {"许", "邓", "潘", "沈", "叶", "程", "苏", "卢", "蒋", "蔡"};
+        String[] given = {"昊天", "若曦", "嘉航", "思齐", "子昂", "语涵", "承宇", "星妍", "泽楷", "依诺"};
+        int offset = index - PLAYER_NAMES.size();
+        return surnames[offset % surnames.length] + given[(offset / surnames.length) % given.length];
     }
 
     private static String questionId(int number) {
