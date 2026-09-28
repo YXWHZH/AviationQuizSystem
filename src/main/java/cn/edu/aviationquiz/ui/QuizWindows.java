@@ -1,6 +1,7 @@
 package cn.edu.aviationquiz.ui;
 
 import cn.edu.aviationquiz.controller.AccountController;
+import cn.edu.aviationquiz.controller.CompetitionManagementController;
 import cn.edu.aviationquiz.controller.CompetitionRoomController;
 import cn.edu.aviationquiz.controller.RegistrationController;
 import cn.edu.aviationquiz.controller.ResultController;
@@ -35,6 +36,7 @@ public final class QuizWindows {
     private final UiRuntime runtime;
     private final QuizService service;
     private final AccountController accountController;
+    private final CompetitionManagementController competitionManagementController;
     private final CompetitionRoomController competitionRoomController;
     private final RegistrationController registrationController;
     private final ResultController resultController;
@@ -48,6 +50,7 @@ public final class QuizWindows {
         this.runtime = runtime;
         service = runtime.service;
         accountController = new AccountController(service);
+        competitionManagementController = new CompetitionManagementController(service);
         competitionRoomController = new CompetitionRoomController(service);
         registrationController = new RegistrationController(service);
         resultController = new ResultController(service);
@@ -1103,7 +1106,7 @@ public final class QuizWindows {
                                                 .collect(java.util.stream.Collectors.toUnmodifiableSet()));
                         return (Callable<String>)
                                 () ->
-                                        service.saveCompetition(
+                                        competitionManagementController.save(
                                                 session, c == null ? null : c.text("id"), input);
                     },
                     () -> {});
@@ -1402,7 +1405,7 @@ public final class QuizWindows {
                                                     action(
                                                             status,
                                                             () ->
-                                                                    service.registrationState(
+                                                                    competitionManagementController.changeRegistrationState(
                                                                             session, cid, "报名中"))),
                                     button(
                                             "截止报名",
@@ -1410,7 +1413,7 @@ public final class QuizWindows {
                                                     action(
                                                             status,
                                                             () ->
-                                                                    service.registrationState(
+                                                                    competitionManagementController.changeRegistrationState(
                                                                             session, cid,
                                                                             "报名截止")))),
                             peoplePage(cid, true));

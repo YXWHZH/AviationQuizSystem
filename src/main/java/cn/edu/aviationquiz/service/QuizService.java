@@ -13,7 +13,11 @@ import java.util.*;
 
 /** Application use cases. Each mutation checks authority and owns one transaction. */
 public final class QuizService
-        implements AccountUseCases, CompetitionRoomService, RegistrationUseCases, ResultUseCases {
+        implements AccountUseCases,
+                CompetitionManagementUseCases,
+                CompetitionRoomService,
+                RegistrationUseCases,
+                ResultUseCases {
     private static final Set<String> CATEGORIES = Set.of("民航史", "飞行原理", "航空法规");
     private static final String COMPETITION_SELECT =
             "SELECT c.*,(SELECT GROUP_CONCAT(category,' / ') FROM competition_category cc WHERE cc.competition_id=c.id ORDER BY category) categories FROM competition c ";
@@ -161,6 +165,7 @@ ORDER BY c.competition_time DESC,c.id
                                 s.id()));
     }
 
+    @Override
     public synchronized String saveCompetition(Session s, String existing, CompetitionInput input) {
         auth(s, true);
         return store.transaction(
@@ -217,6 +222,7 @@ ORDER BY c.competition_time DESC,c.id
         require(!List.of("比赛中", "已结束").contains(competition(db, cid).text("status")), "开赛后配置已锁定");
     }
 
+    @Override
     public synchronized void registrationState(Session s, String cid, String state) {
         auth(s, true);
         store.transaction(
