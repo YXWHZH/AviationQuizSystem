@@ -17,11 +17,14 @@ public final class QuizService {
             "SELECT c.*,(SELECT GROUP_CONCAT(category,' / ') FROM competition_category cc WHERE cc.competition_id=c.id ORDER BY category) categories FROM competition c ";
     private final Store store;
     private final Clock clock;
+    private final CompetitionExecutionService executionService;
     private final Map<String, Session> sessions = new HashMap<>();
 
-    public QuizService(Store store, Clock clock) {
+    public QuizService(
+            Store store, Clock clock, CompetitionExecutionService executionService) {
         this.store = store;
         this.clock = clock;
+        this.executionService = executionService;
         recover();
     }
 
@@ -802,45 +805,7 @@ WHERE r.id IS NOT NULL OR v.id IS NOT NULL ORDER BY c.competition_time DESC
     public synchronized int submit(Session s, String release, String option) {
         auth(s, false);
         recover();
-        return store.transaction(
-                db -> {
-                    long received = now();
-                    Row qr = db.one(RELEASE_SQL + "WHERE qr.id=?", release);
-                    running(db, qr.text("competition_id"));
-                    require(qr.nil("closed_at") && received < qr.number("deadline"), "题目已结束或已超时");
-                    require(received >= qr.number("started_at"), "系统时间异常");
-                    require(
-                            members(db, qr.text("group_id")).stream()
-                                    .anyMatch(p -> p.text("player_id").equals(s.id())),
-                            "您不属于当前答题小组");
-                    require(
-                            !db.exists(
-                                            "SELECT id FROM answer_record WHERE release_id=? AND"
-                                                    + " player_id=?",
-                                            release,
-                                            s.id())
-                                    && !db.exists(
-                                            "SELECT id FROM timeout_record WHERE release_id=? AND"
-                                                    + " player_id=?",
-                                            release,
-                                            s.id()),
-                            "本题已结算，请勿重复提交");
-                    require(
-                            option != null && List.of("A", "B", "C", "D").contains(option),
-                            "请选择一个选项");
-                    boolean correct = option.equals(qr.text("correct_answer"));
-                    int score = CompetitionRound.of(qr.text("round_type")).calculateScore(correct);
-                    db.execute(
-                            "INSERT INTO answer_record VALUES(?,?,?,?,?,?,?)",
-                            id("A"),
-                            release,
-                            s.id(),
-                            option,
-                            correct ? 1 : 0,
-                            score,
-                            received);
-                    return score;
-                });
+        return executionService.submitAnswer(s.id(), release, option);
     }
 
     public synchronized boolean recover() {

@@ -3,6 +3,8 @@ package cn.edu.aviationquiz.service;
 import static org.junit.jupiter.api.Assertions.*;
 
 import cn.edu.aviationquiz.dao.Store;
+import cn.edu.aviationquiz.dao.jdbc.JdbcGameDao;
+import cn.edu.aviationquiz.service.impl.CompetitionExecutionServiceImpl;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -35,7 +37,11 @@ class DemoDataSeederTest {
                     assertEquals("ok", db.one("PRAGMA integrity_check").text("integrity_check"));
                     return null;
                 });
-        QuizService service = new QuizService(store, clock);
+        QuizService service =
+                new QuizService(
+                        store,
+                        clock,
+                        new CompetitionExecutionServiceImpl(new JdbcGameDao(store), clock));
         var player = service.login(false, "player01", PASSWORD_FOR_TESTS);
         assertEquals(10, service.mine(player).size());
         assertEquals(3, service.history(player).size());

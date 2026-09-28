@@ -1,7 +1,9 @@
 package cn.edu.aviationquiz.config;
 
 import cn.edu.aviationquiz.dao.Store;
+import cn.edu.aviationquiz.dao.jdbc.JdbcGameDao;
 import cn.edu.aviationquiz.service.QuizService;
+import cn.edu.aviationquiz.service.impl.CompetitionExecutionServiceImpl;
 import cn.edu.aviationquiz.ui.UiRuntime;
 
 import java.nio.file.Path;
@@ -20,7 +22,11 @@ public final class AppContext implements AutoCloseable {
 
     public static AppContext create(Path database, Clock clock) {
         Store store = new Store(database);
-        QuizService service = new QuizService(store, clock);
+        QuizService service =
+                new QuizService(
+                        store,
+                        clock,
+                        new CompetitionExecutionServiceImpl(new JdbcGameDao(store), clock));
         return new AppContext(new UiRuntime(service));
     }
 

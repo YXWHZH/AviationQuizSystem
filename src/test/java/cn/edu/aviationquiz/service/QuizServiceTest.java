@@ -3,10 +3,12 @@ package cn.edu.aviationquiz.service;
 import static org.junit.jupiter.api.Assertions.*;
 
 import cn.edu.aviationquiz.dao.Store;
+import cn.edu.aviationquiz.dao.jdbc.JdbcGameDao;
 import cn.edu.aviationquiz.entity.*;
 import cn.edu.aviationquiz.entity.Models.*;
 import cn.edu.aviationquiz.exception.BusinessException;
 import cn.edu.aviationquiz.exception.DataAccessException;
+import cn.edu.aviationquiz.service.impl.CompetitionExecutionServiceImpl;
 
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.io.TempDir;
@@ -52,7 +54,7 @@ class QuizServiceTest {
     void setup() {
         clock = new MutableClock();
         store = new Store(temp.resolve("v14.db"));
-        service = new QuizService(store, clock);
+        service = service(store, clock);
         service.setupStaff("admin01", "secret12", "李老师");
         staff = service.login(true, "admin01", "secret12");
     }
@@ -123,6 +125,13 @@ class QuizServiceTest {
 
     long count(String table) {
         return store.transaction(db -> db.one("SELECT COUNT(*) n FROM " + table).number("n"));
+    }
+
+    private static QuizService service(Store store, Clock clock) {
+        return new QuizService(
+                store,
+                clock,
+                new CompetitionExecutionServiceImpl(new JdbcGameDao(store), clock));
     }
 
     @Test
@@ -295,7 +304,8 @@ class QuizServiceTest {
         assertEquals(5, csv.lines().count());
         assertTrue(csv.contains("未晋级"));
         assertThrows(IllegalArgumentException.class, () -> service.publish(staff, f.cid));
-        var reopened = new QuizService(new Store(temp.resolve("v14.db")), clock);
+        Store reopenedStore = new Store(temp.resolve("v14.db"));
+        var reopened = service(reopenedStore, clock);
         Session admin = reopened.login(true, "admin01", "secret12");
         assertEquals(service.ranking(staff, f.cid), reopened.ranking(admin, f.cid));
     }
@@ -308,7 +318,8 @@ class QuizServiceTest {
         long deadline = service.room(f.players.get(0), f.cid).deadline();
         clock.millis += 1000;
         service.submit(f.players.get(0), release, "A");
-        service = new QuizService(new Store(temp.resolve("v14.db")), clock);
+        Store reopenedStore = new Store(temp.resolve("v14.db"));
+        service = service(reopenedStore, clock);
         staff = service.login(true, "admin01", "secret12");
         Session p = service.login(false, "user1", "secret12");
         assertEquals(deadline, service.room(p, f.cid).deadline());

@@ -3,8 +3,10 @@ package cn.edu.aviationquiz.ui;
 import static org.junit.jupiter.api.Assertions.*;
 
 import cn.edu.aviationquiz.dao.Store;
+import cn.edu.aviationquiz.dao.jdbc.JdbcGameDao;
 import cn.edu.aviationquiz.entity.Models.*;
 import cn.edu.aviationquiz.service.QuizService;
+import cn.edu.aviationquiz.service.impl.CompetitionExecutionServiceImpl;
 
 import javafx.application.Platform;
 import javafx.scene.*;
@@ -138,7 +140,13 @@ class QuizWindowsTest {
                     Thread.currentThread().setUncaughtExceptionHandler((t, e) -> errors.add(e));
                     return null;
                 });
-        QuizService service = new QuizService(new Store(temp.resolve("ui.db")), Clock.systemUTC());
+        Store store = new Store(temp.resolve("ui.db"));
+        Clock clock = Clock.systemUTC();
+        QuizService service =
+                new QuizService(
+                        store,
+                        clock,
+                        new CompetitionExecutionServiceImpl(new JdbcGameDao(store), clock));
         service.setupStaff("admin01", "secret12", "李老师");
         Session staff = service.login(true, "admin01", "secret12");
         service.register("userA", "secret12", new PlayerProfileInput("测试大学", "航空学院", "飞行专业", "20260001", "张三", "13800000001"));
