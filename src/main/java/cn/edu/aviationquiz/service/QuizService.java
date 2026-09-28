@@ -12,7 +12,8 @@ import java.time.Clock;
 import java.util.*;
 
 /** Application use cases. Each mutation checks authority and owns one transaction. */
-public final class QuizService implements CompetitionRoomService, RegistrationUseCases {
+public final class QuizService
+        implements CompetitionRoomService, RegistrationUseCases, ResultUseCases {
     private static final Set<String> CATEGORIES = Set.of("民航史", "飞行原理", "航空法规");
     private static final String COMPETITION_SELECT =
             "SELECT c.*,(SELECT GROUP_CONCAT(category,' / ') FROM competition_category cc WHERE cc.competition_id=c.id ORDER BY category) categories FROM competition c ";
@@ -903,16 +904,19 @@ WHERE r.id IS NOT NULL OR v.id IS NOT NULL ORDER BY c.competition_time DESC
                 });
     }
 
+    @Override
     public synchronized List<RankingEntry> ranking(Session s, String cid) {
         signed(s);
         return resultService.ranking(cid);
     }
 
+    @Override
     public synchronized List<RankingEntry> preview(Session s, String cid) {
         auth(s, true);
         return resultService.preview(cid);
     }
 
+    @Override
     public synchronized void archive(Session s, String cid) {
         auth(s, true);
         resultService.archive(cid);
@@ -936,6 +940,7 @@ WHERE r.id IS NOT NULL OR v.id IS NOT NULL ORDER BY c.competition_time DESC
                                         s.id()));
     }
 
+    @Override
     public synchronized String exportCsv(Session s, String cid) {
         auth(s, true);
         store.transaction(

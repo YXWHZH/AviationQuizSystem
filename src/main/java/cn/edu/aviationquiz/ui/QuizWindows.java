@@ -2,6 +2,7 @@ package cn.edu.aviationquiz.ui;
 
 import cn.edu.aviationquiz.controller.CompetitionRoomController;
 import cn.edu.aviationquiz.controller.RegistrationController;
+import cn.edu.aviationquiz.controller.ResultController;
 import cn.edu.aviationquiz.dao.Store.Row;
 import cn.edu.aviationquiz.entity.Models.*;
 import cn.edu.aviationquiz.service.QuizService;
@@ -34,6 +35,7 @@ public final class QuizWindows {
     private final QuizService service;
     private final CompetitionRoomController competitionRoomController;
     private final RegistrationController registrationController;
+    private final ResultController resultController;
     private final DateTimeFormatter dateFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private Stage entry;
     private Dashboard activeDashboard;
@@ -45,6 +47,7 @@ public final class QuizWindows {
         service = runtime.service;
         competitionRoomController = new CompetitionRoomController(service);
         registrationController = new RegistrationController(service);
+        resultController = new ResultController(service);
     }
 
     private String date(long value) {
@@ -1251,7 +1254,7 @@ public final class QuizWindows {
             action(
                     status,
                     () -> {
-                        String csv = service.exportCsv(session, cid);
+                        String csv = resultController.exportCsv(session, cid);
                         try {
                             Files.writeString(file.toPath(), csv, StandardCharsets.UTF_8);
                         } catch (Exception e) {
@@ -1285,7 +1288,7 @@ public final class QuizWindows {
             if (existing("rank" + cid)) return;
             TableView<RankingEntry> t = rankingTable();
             Runnable refresh =
-                    () -> read(() -> service.ranking(session, cid), v -> rankRows(t, v), status);
+                    () -> read(() -> resultController.ranking(session, cid), v -> rankRows(t, v), status);
             refreshers.add(refresh);
             openTab("rank" + cid, name + " · 排名", page(label("排序：总分 → 答对数 → 用时 → 编号"), t));
             refresh.run();
@@ -1730,7 +1733,7 @@ public final class QuizWindows {
                                     "预览晋级结果",
                                     () ->
                                             read(
-                                                    () -> service.preview(session, cid),
+                                                    () -> resultController.preview(session, cid),
                                                     v -> {
                                                         rankRows(ranks, v);
                                                         archive.setDisable(false);
@@ -1740,7 +1743,7 @@ public final class QuizWindows {
             archive.setOnAction(
                     e -> {
                         if (confirm(stage, "确认结束竞赛并归档？归档后只能查询，不能继续答题。"))
-                            action(status, () -> service.archive(session, cid));
+                            action(status, () -> resultController.archive(session, cid));
                     });
             archive.setDisable(true);
             final long[] deadline = {0};
@@ -1791,7 +1794,7 @@ public final class QuizWindows {
                                                 gr,
                                                 service.activeRelease(session, cid),
                                                 service.monitor(session, cid),
-                                                service.ranking(session, cid),
+                                                resultController.ranking(session, cid),
                                                 qs,
                                                 service.completedQuestions(session, cid));
                                     },
@@ -2026,7 +2029,7 @@ public final class QuizWindows {
                                     () ->
                                             new RoomSnapshot(
                                                     service.room(session, cid),
-                                                    service.ranking(session, cid),
+                                                    resultController.ranking(session, cid),
                                                     service.competitions().stream()
                                                             .filter(c -> c.text("id").equals(cid))
                                                             .findFirst()
