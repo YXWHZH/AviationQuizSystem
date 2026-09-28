@@ -5,8 +5,10 @@ import static org.junit.jupiter.api.Assertions.*;
 import cn.edu.aviationquiz.dao.GameDao;
 import cn.edu.aviationquiz.entity.AnswerRecord;
 import cn.edu.aviationquiz.entity.AnswerSubmissionContext;
+import cn.edu.aviationquiz.entity.CompetitionRound;
 import cn.edu.aviationquiz.exception.BusinessException;
 import cn.edu.aviationquiz.service.impl.CompetitionExecutionServiceImpl;
+import cn.edu.aviationquiz.service.impl.StandardRoundFactory;
 
 import org.junit.jupiter.api.Test;
 
@@ -22,7 +24,8 @@ class CompetitionExecutionServiceTest {
     void scoresAndSavesThroughTheDaoContract() {
         FakeGameDao dao = new FakeGameDao();
         dao.context = context("RISK");
-        CompetitionExecutionService service = new CompetitionExecutionServiceImpl(dao, CLOCK);
+        CompetitionExecutionService service =
+                new CompetitionExecutionServiceImpl(dao, CLOCK, new StandardRoundFactory());
 
         assertEquals(20, service.submitAnswer("player-1", "release-1", "A"));
         assertNotNull(dao.saved);
@@ -36,7 +39,8 @@ class CompetitionExecutionServiceTest {
         FakeGameDao dao = new FakeGameDao();
         dao.context = context("REQUIRED");
         dao.settled = true;
-        CompetitionExecutionService service = new CompetitionExecutionServiceImpl(dao, CLOCK);
+        CompetitionExecutionService service =
+                new CompetitionExecutionServiceImpl(dao, CLOCK, new StandardRoundFactory());
 
         BusinessException error =
                 assertThrows(
@@ -45,6 +49,25 @@ class CompetitionExecutionServiceTest {
 
         assertEquals("本题已结算，请勿重复提交", error.getMessage());
         assertNull(dao.saved);
+    }
+
+    @Test
+    void usesAnInjectedRoundFactoryWithoutChangingTheExecutionService() {
+        FakeGameDao dao = new FakeGameDao();
+        dao.context = context("CUSTOM");
+        RoundFactory customFactory =
+                ignored ->
+                        new CompetitionRound() {
+                            @Override
+                            public int calculateScore(boolean correct) {
+                                return correct ? 99 : -99;
+                            }
+                        };
+        CompetitionExecutionService service =
+                new CompetitionExecutionServiceImpl(dao, CLOCK, customFactory);
+
+        assertEquals(99, service.submitAnswer("player-1", "release-1", "A"));
+        assertEquals(99, dao.saved.scoreChange());
     }
 
     private static AnswerSubmissionContext context(String roundType) {

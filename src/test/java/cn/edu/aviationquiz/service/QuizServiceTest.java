@@ -13,6 +13,7 @@ import cn.edu.aviationquiz.exception.DataAccessException;
 import cn.edu.aviationquiz.service.impl.CompetitionExecutionServiceImpl;
 import cn.edu.aviationquiz.service.impl.RegistrationManagementServiceImpl;
 import cn.edu.aviationquiz.service.impl.ResultServiceImpl;
+import cn.edu.aviationquiz.service.impl.StandardRoundFactory;
 
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.io.TempDir;
@@ -132,10 +133,12 @@ class QuizServiceTest {
     }
 
     private static QuizService service(Store store, Clock clock) {
+        RoundFactory roundFactory = new StandardRoundFactory();
         return new QuizService(
                 store,
                 clock,
-                new CompetitionExecutionServiceImpl(new JdbcGameDao(store), clock),
+                roundFactory,
+                new CompetitionExecutionServiceImpl(new JdbcGameDao(store), clock, roundFactory),
                 new RegistrationManagementServiceImpl(new JdbcRegistrationDao(store), clock),
                 new ResultServiceImpl(new JdbcResultDao(store)));
     }

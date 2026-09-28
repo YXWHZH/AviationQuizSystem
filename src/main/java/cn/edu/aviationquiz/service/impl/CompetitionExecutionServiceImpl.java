@@ -2,9 +2,9 @@ package cn.edu.aviationquiz.service.impl;
 
 import cn.edu.aviationquiz.dao.GameDao;
 import cn.edu.aviationquiz.entity.AnswerRecord;
-import cn.edu.aviationquiz.entity.CompetitionRound;
 import cn.edu.aviationquiz.exception.BusinessException;
 import cn.edu.aviationquiz.service.CompetitionExecutionService;
+import cn.edu.aviationquiz.service.RoundFactory;
 
 import java.time.Clock;
 import java.util.List;
@@ -14,10 +14,13 @@ import java.util.UUID;
 public final class CompetitionExecutionServiceImpl implements CompetitionExecutionService {
     private final GameDao gameDao;
     private final Clock clock;
+    private final RoundFactory roundFactory;
 
-    public CompetitionExecutionServiceImpl(GameDao gameDao, Clock clock) {
+    public CompetitionExecutionServiceImpl(
+            GameDao gameDao, Clock clock, RoundFactory roundFactory) {
         this.gameDao = gameDao;
         this.clock = clock;
+        this.roundFactory = roundFactory;
     }
 
     @Override
@@ -37,8 +40,7 @@ public final class CompetitionExecutionServiceImpl implements CompetitionExecuti
                             option != null && List.of("A", "B", "C", "D").contains(option),
                             "请选择一个选项");
                     boolean correct = option.equals(context.correctAnswer());
-                    int score =
-                            CompetitionRound.of(context.roundType()).calculateScore(correct);
+                    int score = roundFactory.create(context.roundType()).calculateScore(correct);
                     db.saveAnswer(
                             new AnswerRecord(
                                     id(),

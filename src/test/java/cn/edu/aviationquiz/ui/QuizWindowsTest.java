@@ -8,9 +8,11 @@ import cn.edu.aviationquiz.dao.jdbc.JdbcRegistrationDao;
 import cn.edu.aviationquiz.dao.jdbc.JdbcResultDao;
 import cn.edu.aviationquiz.entity.Models.*;
 import cn.edu.aviationquiz.service.QuizService;
+import cn.edu.aviationquiz.service.RoundFactory;
 import cn.edu.aviationquiz.service.impl.CompetitionExecutionServiceImpl;
 import cn.edu.aviationquiz.service.impl.RegistrationManagementServiceImpl;
 import cn.edu.aviationquiz.service.impl.ResultServiceImpl;
+import cn.edu.aviationquiz.service.impl.StandardRoundFactory;
 
 import javafx.application.Platform;
 import javafx.scene.*;
@@ -146,11 +148,14 @@ class QuizWindowsTest {
                 });
         Store store = new Store(temp.resolve("ui.db"));
         Clock clock = Clock.systemUTC();
+        RoundFactory roundFactory = new StandardRoundFactory();
         QuizService service =
                 new QuizService(
                         store,
                         clock,
-                        new CompetitionExecutionServiceImpl(new JdbcGameDao(store), clock),
+                        roundFactory,
+                        new CompetitionExecutionServiceImpl(
+                                new JdbcGameDao(store), clock, roundFactory),
                         new RegistrationManagementServiceImpl(
                                 new JdbcRegistrationDao(store), clock),
                         new ResultServiceImpl(new JdbcResultDao(store)));

@@ -5,9 +5,11 @@ import cn.edu.aviationquiz.dao.jdbc.JdbcGameDao;
 import cn.edu.aviationquiz.dao.jdbc.JdbcRegistrationDao;
 import cn.edu.aviationquiz.dao.jdbc.JdbcResultDao;
 import cn.edu.aviationquiz.service.QuizService;
+import cn.edu.aviationquiz.service.RoundFactory;
 import cn.edu.aviationquiz.service.impl.CompetitionExecutionServiceImpl;
 import cn.edu.aviationquiz.service.impl.RegistrationManagementServiceImpl;
 import cn.edu.aviationquiz.service.impl.ResultServiceImpl;
+import cn.edu.aviationquiz.service.impl.StandardRoundFactory;
 import cn.edu.aviationquiz.ui.UiRuntime;
 
 import java.nio.file.Path;
@@ -26,11 +28,14 @@ public final class AppContext implements AutoCloseable {
 
     public static AppContext create(Path database, Clock clock) {
         Store store = new Store(database);
+        RoundFactory roundFactory = new StandardRoundFactory();
         QuizService service =
                 new QuizService(
                         store,
                         clock,
-                        new CompetitionExecutionServiceImpl(new JdbcGameDao(store), clock),
+                        roundFactory,
+                        new CompetitionExecutionServiceImpl(
+                                new JdbcGameDao(store), clock, roundFactory),
                         new RegistrationManagementServiceImpl(
                                 new JdbcRegistrationDao(store), clock),
                         new ResultServiceImpl(new JdbcResultDao(store)));

@@ -9,6 +9,7 @@ import cn.edu.aviationquiz.dao.jdbc.JdbcResultDao;
 import cn.edu.aviationquiz.service.impl.CompetitionExecutionServiceImpl;
 import cn.edu.aviationquiz.service.impl.RegistrationManagementServiceImpl;
 import cn.edu.aviationquiz.service.impl.ResultServiceImpl;
+import cn.edu.aviationquiz.service.impl.StandardRoundFactory;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -41,11 +42,14 @@ class DemoDataSeederTest {
                     assertEquals("ok", db.one("PRAGMA integrity_check").text("integrity_check"));
                     return null;
                 });
+        RoundFactory roundFactory = new StandardRoundFactory();
         QuizService service =
                 new QuizService(
                         store,
                         clock,
-                        new CompetitionExecutionServiceImpl(new JdbcGameDao(store), clock),
+                        roundFactory,
+                        new CompetitionExecutionServiceImpl(
+                                new JdbcGameDao(store), clock, roundFactory),
                         new RegistrationManagementServiceImpl(
                                 new JdbcRegistrationDao(store), clock),
                         new ResultServiceImpl(new JdbcResultDao(store)));

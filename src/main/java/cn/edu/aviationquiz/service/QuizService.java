@@ -3,7 +3,6 @@ package cn.edu.aviationquiz.service;
 import cn.edu.aviationquiz.dao.Store;
 import cn.edu.aviationquiz.dao.Store.Row;
 import cn.edu.aviationquiz.dao.Store.UnitOfWork;
-import cn.edu.aviationquiz.entity.CompetitionRound;
 import cn.edu.aviationquiz.entity.Models.*;
 import cn.edu.aviationquiz.entity.ParticipationType;
 import cn.edu.aviationquiz.exception.BusinessException;
@@ -22,16 +21,19 @@ public final class QuizService
     private final CompetitionExecutionService executionService;
     private final RegistrationManagementService registrationService;
     private final ResultService resultService;
+    private final RoundFactory roundFactory;
     private final Map<String, Session> sessions = new HashMap<>();
 
     public QuizService(
             Store store,
             Clock clock,
+            RoundFactory roundFactory,
             CompetitionExecutionService executionService,
             RegistrationManagementService registrationService,
             ResultService resultService) {
         this.store = store;
         this.clock = clock;
+        this.roundFactory = roundFactory;
         this.executionService = executionService;
         this.registrationService = registrationService;
         this.resultService = resultService;
@@ -406,7 +408,7 @@ WHERE r.id IS NOT NULL OR v.id IS NOT NULL ORDER BY c.competition_time DESC
                 db -> {
                     Row r = db.one("SELECT * FROM competition_round WHERE id=?", rid);
                     editable(db, r.text("competition_id"));
-                    CompetitionRound.of(type);
+                    roundFactory.create(type);
                     require(sequence > 0 && seconds > 0, "顺序和时限必须大于 0");
                     db.execute(
                             "UPDATE competition_round SET"
@@ -525,7 +527,7 @@ WHERE r.id IS NOT NULL OR v.id IS NOT NULL ORDER BY c.competition_time DESC
         return store.transaction(
                 db -> {
                     editable(db, cid);
-                    CompetitionRound.of(type);
+                    roundFactory.create(type);
                     require(sequence > 0 && seconds > 0, "顺序和时限必须大于 0");
                     String rid = id("RD");
                     db.execute(
