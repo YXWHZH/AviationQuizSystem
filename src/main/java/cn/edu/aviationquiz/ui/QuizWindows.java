@@ -1,5 +1,6 @@
 package cn.edu.aviationquiz.ui;
 
+import cn.edu.aviationquiz.controller.AccountController;
 import cn.edu.aviationquiz.controller.CompetitionRoomController;
 import cn.edu.aviationquiz.controller.RegistrationController;
 import cn.edu.aviationquiz.controller.ResultController;
@@ -33,6 +34,7 @@ import java.util.function.*;
 public final class QuizWindows {
     private final UiRuntime runtime;
     private final QuizService service;
+    private final AccountController accountController;
     private final CompetitionRoomController competitionRoomController;
     private final RegistrationController registrationController;
     private final ResultController resultController;
@@ -45,6 +47,7 @@ public final class QuizWindows {
     public QuizWindows(UiRuntime runtime) {
         this.runtime = runtime;
         service = runtime.service;
+        accountController = new AccountController(service);
         competitionRoomController = new CompetitionRoomController(service);
         registrationController = new RegistrationController(service);
         resultController = new ResultController(service);
@@ -279,7 +282,7 @@ public final class QuizWindows {
         Runnable setupRefresh =
                 () ->
                         read(
-                                service::needsSetup,
+                                accountController::needsStaffSetup,
                                 needed -> {
                                     setup.setVisible(needed);
                                     setup.setManaged(needed);
@@ -430,14 +433,22 @@ public final class QuizWindows {
             submit.setDisable(true);
             try {
                 String u = username.getText(), p = password.getText();
-                if (create && !p.equals(finalConfirmPassword.getText())) throw new IllegalArgumentException("两次输入的密码不一致");
                 runtime.mutate(() -> {
                     if (create) {
-                        service.register(u, p, new PlayerProfileInput(finalSchool.getText(), finalCollege.getText(),
-                                finalMajor.getText(), finalStudentNumber.getText(), finalName.getText(), finalPhone.getText()));
+                        accountController.registerPlayer(
+                                u,
+                                p,
+                                finalConfirmPassword.getText(),
+                                new PlayerProfileInput(
+                                        finalSchool.getText(),
+                                        finalCollege.getText(),
+                                        finalMajor.getText(),
+                                        finalStudentNumber.getText(),
+                                        finalName.getText(),
+                                        finalPhone.getText()));
                         return null;
                     }
-                    return service.login(false, u, p);
+                    return accountController.login(false, u, p);
                 }, value -> {
                     submit.setDisable(false);
                     if (create) showPlayerAuth(false, u);
@@ -462,7 +473,7 @@ public final class QuizWindows {
     }
 
     private void openPlayerAfterLogin(Session session) {
-        read(() -> service.profileComplete(session), complete -> {
+        read(() -> accountController.profileComplete(session), complete -> {
             if (complete) {
                 openSession(session);
             } else showProfileCompletion(session);
@@ -476,25 +487,25 @@ public final class QuizWindows {
     }
 
     private void profileForm(Window owner, Session session, boolean required, Runnable after) {
-        read(() -> service.playerProfile(session), profile -> {
+        read(() -> accountController.playerProfile(session), profile -> {
             Form f = new Form(owner, required ? "完善个人资料" : "编辑个人资料");
             if (required) {
                 f.body.getChildren().add(1, label("首次登录需要补全学籍与联系方式，保存后才能参赛。"));
                 f.onCancel = () -> {
                     f.close();
-                    runtime.read(() -> { service.logout(session); return null; }, v -> {}, ex -> {});
+                    runtime.read(() -> { accountController.logout(session); return null; }, v -> {}, ex -> {});
                 };
             }
-            TextField school = f.text("院校 *", profile.text("school"));
-            TextField college = f.text("学院 *", profile.text("college"));
-            TextField major = f.text("专业 *", profile.text("major"));
-            TextField studentNumber = f.text("学号 *", profile.text("student_number"));
-            TextField name = f.text("姓名 *", profile.text("name"));
-            TextField phone = f.text("手机号 *", profile.text("phone"));
+            TextField school = f.text("院校 *", profile.school());
+            TextField college = f.text("学院 *", profile.college());
+            TextField major = f.text("专业 *", profile.major());
+            TextField studentNumber = f.text("学号 *", profile.studentNumber());
+            TextField name = f.text("姓名 *", profile.name());
+            TextField phone = f.text("手机号 *", profile.phone());
             f.save("保存资料", () -> {
                 PlayerProfileInput input = new PlayerProfileInput(school.getText(), college.getText(), major.getText(),
                         studentNumber.getText(), name.getText(), phone.getText());
-                return (Callable<Object>) () -> { service.updatePlayerProfile(session, input); return null; };
+                return (Callable<Object>) () -> { accountController.updatePlayerProfile(session, input); return null; };
             }, after);
         }, global);
     }
@@ -662,11 +673,11 @@ public final class QuizWindows {
                     return (Callable<Object>)
                             () -> {
                                 if (create) {
-                                    if (staff) service.setupStaff(u, p, n);
+                                    if (staff) accountController.setupStaff(u, p, n);
                                     else throw new IllegalStateException("请使用选手注册页面");
                                     return null;
                                 }
-                                loggedIn[0] = service.login(staff, u, p);
+                                loggedIn[0] = accountController.login(staff, u, p);
                                 return null;
                             };
                 },
@@ -702,7 +713,7 @@ public final class QuizWindows {
         activeDashboard = null;
         runtime.read(
                 () -> {
-                    service.logout(dashboard.session);
+                    accountController.logout(dashboard.session);
                     return null;
                 },
                 v -> open(entry),
@@ -815,7 +826,6 @@ public final class QuizWindows {
             fields.setHgap(24);
             fields.setVgap(16);
             String[] labels = {"账号", "姓名", "院校", "学院", "专业", "学号", "手机号"};
-            String[] keys = {"username", "name", "school", "college", "major", "student_number", "phone"};
             List<Label> values = new ArrayList<>();
             for (int i = 0; i < labels.length; i++) {
                 Label value = label("—");
@@ -824,8 +834,18 @@ public final class QuizWindows {
                 fields.add(value, 1, i);
                 values.add(value);
             }
-            Runnable refresh = () -> read(() -> service.playerProfile(session), row -> {
-                for (int i = 0; i < keys.length; i++) values.get(i).setText(row.text(keys[i]));
+            Runnable refresh = () -> read(() -> accountController.playerProfile(session), profile -> {
+                List<String> profileFields =
+                        List.of(
+                                profile.username(),
+                                profile.name(),
+                                profile.school(),
+                                profile.college(),
+                                profile.major(),
+                                profile.studentNumber(),
+                                profile.phone());
+                for (int i = 0; i < profileFields.size(); i++)
+                    values.get(i).setText(profileFields.get(i));
             }, status);
             refreshers.add(refresh);
             VBox card = new VBox(20, title("个人资料"), label("维护参赛身份和联系信息"), fields,

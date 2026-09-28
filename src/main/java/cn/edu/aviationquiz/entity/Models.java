@@ -12,6 +12,16 @@ public final class Models {
     public record PlayerProfileInput(
             String school, String college, String major, String studentNumber, String name, String phone) {}
 
+    public record PlayerProfileView(
+            String username,
+            String name,
+            String phone,
+            String school,
+            String college,
+            String major,
+            String studentNumber,
+            boolean complete) {}
+
     public record CompetitionInput(
             String name,
             String description,

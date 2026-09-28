@@ -12,7 +12,7 @@ import java.util.*;
 
 /** Application use cases. Each mutation checks authority and owns one transaction. */
 public final class QuizService
-        implements CompetitionRoomService, RegistrationUseCases, ResultUseCases {
+        implements AccountUseCases, CompetitionRoomService, RegistrationUseCases, ResultUseCases {
     private static final Set<String> CATEGORIES = Set.of("民航史", "飞行原理", "航空法规");
     private static final String COMPETITION_SELECT =
             "SELECT c.*,(SELECT GROUP_CONCAT(category,' / ') FROM competition_category cc WHERE cc.competition_id=c.id ORDER BY category) categories FROM competition c ";
@@ -68,10 +68,12 @@ public final class QuizService
         return value;
     }
 
+    @Override
     public synchronized boolean needsSetup() {
         return store.transaction(db -> !db.exists("SELECT id FROM staff"));
     }
 
+    @Override
     public synchronized void setupStaff(String username, String password, String name) {
         store.transaction(
                 db -> {
@@ -81,6 +83,7 @@ public final class QuizService
                 });
     }
 
+    @Override
     public synchronized void register(String username, String password, PlayerProfileInput profile) {
         store.transaction(
                 db -> {
@@ -108,16 +111,34 @@ public final class QuizService
         return new PlayerProfileInput(school, college, major, student, name, phone);
     }
 
+    @Override
     public synchronized boolean profileComplete(Session s) {
         auth(s, false);
         return store.transaction(db -> db.one("SELECT profile_complete FROM player WHERE id=?", s.id()).number("profile_complete") == 1);
     }
 
-    public synchronized Row playerProfile(Session s) {
+    @Override
+    public synchronized PlayerProfileView playerProfile(Session s) {
         auth(s, false);
-        return store.transaction(db -> db.one("SELECT username,name,phone,school,college,major,student_number,profile_complete FROM player WHERE id=?", s.id()));
+        return store.transaction(
+                db -> {
+                    Row row =
+                            db.one(
+                                    "SELECT username,name,phone,school,college,major,student_number,profile_complete FROM player WHERE id=?",
+                                    s.id());
+                    return new PlayerProfileView(
+                            row.text("username"),
+                            row.text("name"),
+                            row.text("phone"),
+                            row.text("school"),
+                            row.text("college"),
+                            row.text("major"),
+                            row.text("student_number"),
+                            row.number("profile_complete") == 1);
+                });
     }
 
+    @Override
     public synchronized void updatePlayerProfile(Session s, PlayerProfileInput profile) {
         auth(s, false);
         store.transaction(db -> {
@@ -166,6 +187,7 @@ public final class QuizService
                     phone);
     }
 
+    @Override
     public synchronized Session login(boolean staff, String username, String password) {
         return store.transaction(
                 db -> {
@@ -195,6 +217,7 @@ public final class QuizService
                 });
     }
 
+    @Override
     public synchronized void logout(Session s) {
         if (s != null) sessions.remove(s.token());
     }

@@ -461,9 +461,9 @@ class QuizServiceTest {
         service.register("profile2", "secret12", new PlayerProfileInput("乙大学", "航空学院", "飞行专业", "20260001", "李四", "13800000002"));
         Session player = service.login(false, "profile1", "secret12");
         assertTrue(service.profileComplete(player));
-        assertEquals("甲大学", service.playerProfile(player).text("school"));
+        assertEquals("甲大学", service.playerProfile(player).school());
         service.updatePlayerProfile(player, new PlayerProfileInput("甲大学", "工程学院", "动力工程", "20260003", "张三", "13900000001"));
-        assertEquals("20260003", service.playerProfile(player).text("student_number"));
+        assertEquals("20260003", service.playerProfile(player).studentNumber());
     }
 
     @Test
