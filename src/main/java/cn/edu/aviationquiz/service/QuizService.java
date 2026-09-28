@@ -3,6 +3,7 @@ package cn.edu.aviationquiz.service;
 import cn.edu.aviationquiz.dao.Store;
 import cn.edu.aviationquiz.dao.Store.Row;
 import cn.edu.aviationquiz.dao.Store.UnitOfWork;
+import cn.edu.aviationquiz.entity.AccountRecord;
 import cn.edu.aviationquiz.entity.Models.*;
 import cn.edu.aviationquiz.entity.ParticipationType;
 import cn.edu.aviationquiz.exception.BusinessException;
@@ -18,6 +19,7 @@ public final class QuizService
             "SELECT c.*,(SELECT GROUP_CONCAT(category,' / ') FROM competition_category cc WHERE cc.competition_id=c.id ORDER BY category) categories FROM competition c ";
     private final Store store;
     private final Clock clock;
+    private final AccountManagementService accountService;
     private final CompetitionExecutionService executionService;
     private final RegistrationManagementService registrationService;
     private final ResultService resultService;
@@ -28,12 +30,14 @@ public final class QuizService
             Store store,
             Clock clock,
             RoundFactory roundFactory,
+            AccountManagementService accountService,
             CompetitionExecutionService executionService,
             RegistrationManagementService registrationService,
             ResultService resultService) {
         this.store = store;
         this.clock = clock;
         this.roundFactory = roundFactory;
+        this.accountService = accountService;
         this.executionService = executionService;
         this.registrationService = registrationService;
         this.resultService = resultService;
@@ -70,151 +74,56 @@ public final class QuizService
 
     @Override
     public synchronized boolean needsSetup() {
-        return store.transaction(db -> !db.exists("SELECT id FROM staff"));
+        return accountService.needsStaffSetup();
     }
 
     @Override
     public synchronized void setupStaff(String username, String password, String name) {
-        store.transaction(
-                db -> {
-                    require(!db.exists("SELECT id FROM staff"), "工作人员已初始化");
-                    createAccount(db, true, username, password, name, "");
-                    return null;
-                });
+        accountService.setupStaff(username, password, name);
     }
 
     @Override
     public synchronized void register(String username, String password, PlayerProfileInput profile) {
-        store.transaction(
-                db -> {
-                    PlayerProfileInput p = validProfile(profile);
-                    String u = bounded(username, 4, 20, "账号");
-                    require(password != null && password.length() >= 6 && password.length() <= 20, "密码长度须为 6～20");
-                    require(!db.exists("SELECT id FROM player WHERE username=?", u), "账号已存在");
-                    require(!db.exists("SELECT id FROM player WHERE school=? AND student_number=?", p.school(), p.studentNumber()), "该院校学号已注册");
-                    db.execute("INSERT INTO player VALUES(?,?,?,?,?,?,?,?,?,1)", id("P"), u,
-                            Passwords.hash(password), p.name(), p.phone(), p.school(), p.college(), p.major(), p.studentNumber());
-                    return null;
-                });
-    }
-
-    private static PlayerProfileInput validProfile(PlayerProfileInput profile) {
-        require(profile != null, "请填写选手资料");
-        String school = bounded(profile.school(), 2, 50, "院校");
-        String college = bounded(profile.college(), 2, 50, "学院");
-        String major = bounded(profile.major(), 2, 50, "专业");
-        String student = bounded(profile.studentNumber(), 4, 30, "学号");
-        require(student.matches("[A-Za-z0-9_-]+"), "学号只能包含字母、数字、连字符或下划线");
-        String name = bounded(profile.name(), 2, 20, "姓名");
-        String phone = profile.phone() == null ? "" : profile.phone().trim();
-        require(phone.matches("[0-9]{11}"), "手机号必须为 11 位数字");
-        return new PlayerProfileInput(school, college, major, student, name, phone);
+        accountService.registerPlayer(username, password, profile);
     }
 
     @Override
     public synchronized boolean profileComplete(Session s) {
         auth(s, false);
-        return store.transaction(db -> db.one("SELECT profile_complete FROM player WHERE id=?", s.id()).number("profile_complete") == 1);
+        return accountService.profileComplete(s.id());
     }
 
     @Override
     public synchronized PlayerProfileView playerProfile(Session s) {
         auth(s, false);
-        return store.transaction(
-                db -> {
-                    Row row =
-                            db.one(
-                                    "SELECT username,name,phone,school,college,major,student_number,profile_complete FROM player WHERE id=?",
-                                    s.id());
-                    return new PlayerProfileView(
-                            row.text("username"),
-                            row.text("name"),
-                            row.text("phone"),
-                            row.text("school"),
-                            row.text("college"),
-                            row.text("major"),
-                            row.text("student_number"),
-                            row.number("profile_complete") == 1);
-                });
+        return accountService.playerProfile(s.id());
     }
 
     @Override
     public synchronized void updatePlayerProfile(Session s, PlayerProfileInput profile) {
         auth(s, false);
-        store.transaction(db -> {
-            PlayerProfileInput p = validProfile(profile);
-            require(!db.exists("SELECT id FROM player WHERE school=? AND student_number=? AND id<>?", p.school(), p.studentNumber(), s.id()), "该院校学号已注册");
-            db.execute("UPDATE player SET school=?,college=?,major=?,student_number=?,name=?,phone=?,profile_complete=1 WHERE id=?",
-                    p.school(), p.college(), p.major(), p.studentNumber(), p.name(), p.phone(), s.id());
-            return null;
-        });
+        accountService.updatePlayerProfile(s.id(), profile);
     }
 
     private void requireComplete(UnitOfWork db, Session s) throws Exception {
         require(db.one("SELECT profile_complete FROM player WHERE id=?", s.id()).number("profile_complete") == 1, "请先完善个人资料");
     }
 
-    private void createAccount(
-            UnitOfWork db,
-            boolean staff,
-            String username,
-            String password,
-            String name,
-            String phone)
-            throws Exception {
-        username = bounded(username, 4, 20, "账号");
-        name = bounded(name, 2, 20, "姓名");
-        require(
-                password != null && password.length() >= 6 && password.length() <= 20,
-                "密码长度须为 6～20");
-        require(phone != null && (phone.isEmpty() || phone.matches("[0-9]{11}")), "电话应为空或 11 位数字");
-        String table = staff ? "staff" : "player";
-        require(!db.exists("SELECT id FROM " + table + " WHERE username=?", username), "账号已存在");
-        if (staff)
-            db.execute(
-                    "INSERT INTO staff VALUES(?,?,?,?)",
-                    id("S"),
-                    username,
-                    Passwords.hash(password),
-                    name);
-        else
-            db.execute(
-                    "INSERT INTO player VALUES(?,?,?,?,?)",
-                    id("P"),
-                    username,
-                    Passwords.hash(password),
-                    name,
-                    phone);
-    }
-
     @Override
     public synchronized Session login(boolean staff, String username, String password) {
-        return store.transaction(
-                db -> {
-                    var rows =
-                            db.list(
-                                    "SELECT * FROM "
-                                            + (staff ? "staff" : "player")
-                                            + " WHERE username=?",
-                                    username.trim());
-                    require(
-                            !rows.isEmpty()
-                                    && Passwords.verify(
-                                            password, rows.getFirst().text("password_hash")),
-                            "账号或密码错误");
-                    Row row = rows.getFirst();
-                    for (Session s : sessions.values())
-                        if (s.staff() == staff && s.id().equals(row.text("id"))) return s;
-                    Session s =
-                            new Session(
-                                    id("SESSION"),
-                                    row.text("id"),
-                                    row.text("username"),
-                                    row.text("name"),
-                                    staff);
-                    sessions.put(s.token(), s);
-                    return s;
-                });
+        AccountRecord account = accountService.authenticate(staff, username, password);
+        for (Session session : sessions.values())
+            if (session.staff() == account.staff() && session.id().equals(account.id()))
+                return session;
+        Session session =
+                new Session(
+                        id("SESSION"),
+                        account.id(),
+                        account.username(),
+                        account.name(),
+                        account.staff());
+        sessions.put(session.token(), session);
+        return session;
     }
 
     @Override

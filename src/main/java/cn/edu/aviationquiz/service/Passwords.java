@@ -6,10 +6,12 @@ import java.util.Base64;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
 
-final class Passwords {
+public final class Passwords {
     private static final int ITERATIONS = 210_000;
 
-    static String hash(String password) {
+    private Passwords() {}
+
+    public static String hash(String password) {
         byte[] salt = new byte[16];
         new SecureRandom().nextBytes(salt);
         return ITERATIONS
@@ -19,7 +21,7 @@ final class Passwords {
                 + Base64.getEncoder().encodeToString(derive(password, salt, ITERATIONS));
     }
 
-    static boolean verify(String password, String encoded) {
+    public static boolean verify(String password, String encoded) {
         String[] parts = encoded.split(":");
         return MessageDigest.isEqual(
                 Base64.getDecoder().decode(parts[2]),
