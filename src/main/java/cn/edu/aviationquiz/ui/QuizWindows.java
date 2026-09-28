@@ -1,5 +1,6 @@
 package cn.edu.aviationquiz.ui;
 
+import cn.edu.aviationquiz.controller.CompetitionRoomController;
 import cn.edu.aviationquiz.dao.Store.Row;
 import cn.edu.aviationquiz.entity.Models.*;
 import cn.edu.aviationquiz.service.QuizService;
@@ -30,6 +31,7 @@ import java.util.function.*;
 public final class QuizWindows {
     private final UiRuntime runtime;
     private final QuizService service;
+    private final CompetitionRoomController competitionRoomController;
     private final DateTimeFormatter dateFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private Stage entry;
     private Dashboard activeDashboard;
@@ -39,6 +41,7 @@ public final class QuizWindows {
     public QuizWindows(UiRuntime runtime) {
         this.runtime = runtime;
         service = runtime.service;
+        competitionRoomController = new CompetitionRoomController(service);
     }
 
     private String date(long value) {
@@ -1945,7 +1948,7 @@ public final class QuizWindows {
                         buttons.run();
                         feedback.setText("正在提交…");
                         runtime.mutate(
-                                () -> service.submit(session, release, answer),
+                                () -> competitionRoomController.submitAnswer(session, release, answer),
                                 score -> {
                                     busy[0] = false;
                                     feedback.setText(

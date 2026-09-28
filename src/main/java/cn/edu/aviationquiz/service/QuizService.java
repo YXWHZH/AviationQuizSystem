@@ -11,7 +11,7 @@ import java.time.Clock;
 import java.util.*;
 
 /** Application use cases. Each mutation checks authority and owns one transaction. */
-public final class QuizService {
+public final class QuizService implements CompetitionRoomService {
     private static final Set<String> CATEGORIES = Set.of("民航史", "飞行原理", "航空法规");
     private static final String COMPETITION_SELECT =
             "SELECT c.*,(SELECT GROUP_CONCAT(category,' / ') FROM competition_category cc WHERE cc.competition_id=c.id ORDER BY category) categories FROM competition c ";
@@ -802,6 +802,7 @@ WHERE r.id IS NOT NULL OR v.id IS NOT NULL ORDER BY c.competition_time DESC
                 gid);
     }
 
+    @Override
     public synchronized int submit(Session s, String release, String option) {
         auth(s, false);
         recover();
