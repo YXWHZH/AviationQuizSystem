@@ -1,6 +1,7 @@
 package cn.edu.aviationquiz.ui;
 
 import cn.edu.aviationquiz.controller.CompetitionRoomController;
+import cn.edu.aviationquiz.controller.RegistrationController;
 import cn.edu.aviationquiz.dao.Store.Row;
 import cn.edu.aviationquiz.entity.Models.*;
 import cn.edu.aviationquiz.service.QuizService;
@@ -32,6 +33,7 @@ public final class QuizWindows {
     private final UiRuntime runtime;
     private final QuizService service;
     private final CompetitionRoomController competitionRoomController;
+    private final RegistrationController registrationController;
     private final DateTimeFormatter dateFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private Stage entry;
     private Dashboard activeDashboard;
@@ -42,6 +44,7 @@ public final class QuizWindows {
         this.runtime = runtime;
         service = runtime.service;
         competitionRoomController = new CompetitionRoomController(service);
+        registrationController = new RegistrationController(service);
     }
 
     private String date(long value) {
@@ -934,7 +937,7 @@ public final class QuizWindows {
                                                         action(
                                                                 status,
                                                                 () ->
-                                                                        service.join(
+                                                                        registrationController.join(
                                                                                 session, cid,
                                                                                 true));
                                                     })),
@@ -949,7 +952,7 @@ public final class QuizWindows {
                                                         action(
                                                                 status,
                                                                 () ->
-                                                                        service.join(
+                                                                        registrationController.join(
                                                                                 session, cid,
                                                                                 false));
                                                     })),
@@ -958,14 +961,14 @@ public final class QuizWindows {
                                     "取消预约",
                                     () -> safe(status, () -> {
                                         String cid = selected(table).text("id");
-                                        action(status, () -> service.cancelParticipation(session, cid, true));
+                                        action(status, () -> registrationController.cancel(session, cid, true));
                                     })),
                     cancelRegister =
                             button(
                                     "取消报名",
                                     () -> safe(status, () -> {
                                         String cid = selected(table).text("id");
-                                        action(status, () -> service.cancelParticipation(session, cid, false));
+                                        action(status, () -> registrationController.cancel(session, cid, false));
                                     })),
                     enter = button("进入比赛室", () -> safe(status, () -> room(selected(table))));
             register.getStyleClass().add("primary-button");
@@ -1443,7 +1446,7 @@ public final class QuizWindows {
                                             String n = name.getText();
                                             int order = Integer.parseInt(seq.getText());
                                             return (Callable<String>)
-                                                    () -> service.addGroup(session, cid, n, order);
+                                                    () -> registrationController.addGroup(session, cid, n, order);
                                         },
                                         () -> {});
                             });
@@ -1485,7 +1488,7 @@ public final class QuizWindows {
                                                         action(
                                                                 status,
                                                                 () ->
-                                                                        service.assign(
+                                                                        registrationController.assign(
                                                                                 session,
                                                                                 registration,
                                                                                 gid));
