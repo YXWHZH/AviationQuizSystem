@@ -66,12 +66,13 @@ JavaFX 单机课程设计。游客浏览竞赛，选手自行注册、预约及�
 
 ## 代码与验证
 
-- `App`：启动及生命周期。
+- `AppContext`：应用组装入口，创建实现类并向上层注入接口依赖。
 - `ui/QuizWindows`：公共入口、单窗口角色页面、表单与比赛室。
-- `ui/UiRuntime`：后台业务队列与提交成功后的窗口通知。
-- `service/QuizService`：账号、报名、分组、题单、运行、判分和结果用例。
+- `controller/*Controller`：接收界面输入并调用小粒度用例接口。
+- `service` 与 `service/impl`：会话权限、报名分组、比赛执行、排名归档等业务规则。
+- `dao/*Dao` 与 `dao/jdbc`：核心业务的数据访问契约及 SQLite/JDBC 实现。
 - `dao/Store`：JDBC 参数绑定、事务及初始化；`database/v16*.sql` 提供表和完整性触发器。
-- `entity/Models`：不可变输入和查询视图；三种轮次通过 `calculateScore(boolean correct)` 多态计分。
+- `CompetitionRound` 子类通过多态计分，`RoundFactory` 负责可替换的规则创建。
 
 常规测试使用临时数据库，覆盖两组四人三轮比赛、权限、去重、约束、重启恢复和归档回滚。JavaFX 窗口测试需要桌面会话，默认不运行：
 
@@ -79,6 +80,6 @@ JavaFX 单机课程设计。游客浏览竞赛，选手自行注册、预约及�
 ./tools/apache-maven-3.9.11/bin/mvn.cmd '-Dquiz.uiTest=true' test
 ```
 
-窗口测试自动创建并关闭测试窗口，截图在 `target/ui-snapshots/`。所有测试均不使用生产数据库。设计映射见 [实现说明](docs/implementation-v16.md)。
+窗口测试自动创建并关闭测试窗口，截图在 `target/ui-snapshots/`。所有测试均不使用生产数据库。设计映射见 [实现说明](docs/implementation-v16.md) 和 [核心功能分层设计](docs/layered-design.md)。
 
 第一版提供选手自行取消和恢复预约、报名；不提供作废重赛、网络抢答及下一阶段比赛。课程设计报告应由学生本人撰写，本仓库提供程序与开发说明。
