@@ -4,7 +4,9 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import cn.edu.aviationquiz.dao.Store;
 import cn.edu.aviationquiz.dao.jdbc.JdbcGameDao;
+import cn.edu.aviationquiz.dao.jdbc.JdbcRegistrationDao;
 import cn.edu.aviationquiz.service.impl.CompetitionExecutionServiceImpl;
+import cn.edu.aviationquiz.service.impl.RegistrationManagementServiceImpl;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -41,7 +43,9 @@ class DemoDataSeederTest {
                 new QuizService(
                         store,
                         clock,
-                        new CompetitionExecutionServiceImpl(new JdbcGameDao(store), clock));
+                        new CompetitionExecutionServiceImpl(new JdbcGameDao(store), clock),
+                        new RegistrationManagementServiceImpl(
+                                new JdbcRegistrationDao(store), clock));
         var player = service.login(false, "player01", PASSWORD_FOR_TESTS);
         assertEquals(10, service.mine(player).size());
         assertEquals(3, service.history(player).size());

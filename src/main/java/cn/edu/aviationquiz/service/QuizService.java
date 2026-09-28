@@ -5,6 +5,7 @@ import cn.edu.aviationquiz.dao.Store.Row;
 import cn.edu.aviationquiz.dao.Store.UnitOfWork;
 import cn.edu.aviationquiz.entity.CompetitionRound;
 import cn.edu.aviationquiz.entity.Models.*;
+import cn.edu.aviationquiz.entity.ParticipationType;
 import cn.edu.aviationquiz.exception.BusinessException;
 
 import java.time.Clock;
@@ -18,13 +19,18 @@ public final class QuizService implements CompetitionRoomService {
     private final Store store;
     private final Clock clock;
     private final CompetitionExecutionService executionService;
+    private final RegistrationManagementService registrationService;
     private final Map<String, Session> sessions = new HashMap<>();
 
     public QuizService(
-            Store store, Clock clock, CompetitionExecutionService executionService) {
+            Store store,
+            Clock clock,
+            CompetitionExecutionService executionService,
+            RegistrationManagementService registrationService) {
         this.store = store;
         this.clock = clock;
         this.executionService = executionService;
+        this.registrationService = registrationService;
         recover();
     }
 
@@ -297,51 +303,18 @@ ORDER BY c.competition_time DESC,c.id
 
     public synchronized void join(Session s, String cid, boolean reservation) {
         auth(s, false);
-        store.transaction(
-                db -> {
-                    requireComplete(db, s);
-                    Row c = competition(db, cid);
-                    if (reservation) require(c.text("status").equals("未开放"), "只有未开放竞赛允许预约");
-                    else
-                        require(
-                                c.text("status").equals("报名中")
-                                        && now() >= c.number("register_start")
-                                        && now() < c.number("register_end"),
-                                "报名尚未开放或已经截止");
-                    String table = reservation ? "reservation" : "registration";
-                    var existing = db.list("SELECT id,status FROM " + table + " WHERE player_id=? AND competition_id=?", s.id(), cid);
-                    if (existing.isEmpty())
-                        db.execute("INSERT INTO " + table + " VALUES(?,?,?,?, '有效')",
-                                id(reservation ? "V" : "R"), s.id(), cid, now());
-                    else {
-                        require(existing.getFirst().text("status").equals("已取消"),
-                                reservation ? "您已经预约，无需重复提交" : "您已经报名，无需重复提交");
-                        db.execute("UPDATE " + table + " SET status='有效',created_at=? WHERE id=?",
-                                now(), existing.getFirst().text("id"));
-                    }
-                    if (!reservation)
-                        db.execute("UPDATE reservation SET status='已取消' WHERE player_id=? AND competition_id=? AND status='有效'", s.id(), cid);
-                    return null;
-                });
+        registrationService.join(
+                s.id(),
+                cid,
+                reservation ? ParticipationType.RESERVATION : ParticipationType.REGISTRATION);
     }
 
     public synchronized void cancelParticipation(Session s, String cid, boolean reservation) {
         auth(s, false);
-        store.transaction(db -> {
-            Row c = competition(db, cid);
-            String table = reservation ? "reservation" : "registration";
-            Row record = db.one("SELECT id,status FROM " + table + " WHERE player_id=? AND competition_id=?", s.id(), cid);
-            require(record.text("status").equals("有效"), reservation ? "当前没有有效预约" : "当前没有有效报名");
-            if (reservation) require(c.text("status").equals("未开放"), "只有未开放竞赛允许取消预约");
-            else {
-                require(c.text("status").equals("报名中") && now() >= c.number("register_start")
-                        && now() < c.number("register_end"), "只能在报名时间内取消报名");
-                require(!db.exists("SELECT id FROM group_assignment WHERE registration_id=?", record.text("id")),
-                        "已分组后不能取消报名");
-            }
-            db.execute("UPDATE " + table + " SET status='已取消' WHERE id=?", record.text("id"));
-            return null;
-        });
+        registrationService.cancel(
+                s.id(),
+                cid,
+                reservation ? ParticipationType.RESERVATION : ParticipationType.REGISTRATION);
     }
 
     public synchronized List<Row> mine(Session s) {
@@ -396,54 +369,12 @@ WHERE r.id IS NOT NULL OR v.id IS NOT NULL ORDER BY c.competition_time DESC
 
     public synchronized String addGroup(Session s, String cid, String name, int sequence) {
         auth(s, true);
-        return store.transaction(
-                db -> {
-                    editable(db, cid);
-                    require(competition(db, cid).text("status").equals("报名截止"), "报名截止后才能分组");
-                    require(sequence > 0, "出场顺序必须大于 0");
-                    String gid = id("G");
-                    db.execute(
-                            "INSERT INTO competition_group VALUES(?,?,?,?)",
-                            gid,
-                            cid,
-                            bounded(name, 1, 30, "组名"),
-                            sequence);
-                    return gid;
-                });
+        return registrationService.addGroup(cid, name, sequence);
     }
 
     public synchronized void assign(Session s, String registration, String group) {
         auth(s, true);
-        store.transaction(
-                db -> {
-                    Row r =
-                            db.one(
-                                    "SELECT * FROM registration WHERE id=? AND status='有效'",
-                                    registration);
-                    editable(db, r.text("competition_id"));
-                    require(
-                            competition(db, r.text("competition_id")).text("status").equals("报名截止"),
-                            "报名截止后才能分组");
-                    require(
-                            db.exists(
-                                    "SELECT id FROM competition_group WHERE id=? AND"
-                                            + " competition_id=?",
-                                    group,
-                                    r.text("competition_id")),
-                            "小组与报名不属于同场竞赛");
-                    require(
-                            !db.exists(
-                                    "SELECT id FROM group_assignment WHERE registration_id=?",
-                                    registration),
-                            "该选手已经分组");
-                    db.execute(
-                            "INSERT INTO group_assignment VALUES(?,?,?,?)",
-                            id("GA"),
-                            registration,
-                            group,
-                            now());
-                    return null;
-                });
+        registrationService.assign(registration, group);
     }
 
     public synchronized void deleteEmptyGroup(Session s, String group) {
