@@ -18,12 +18,12 @@ public final class QuizService
                 CompetitionRoomService,
                 RegistrationUseCases,
                 ResultUseCases {
-    private static final Set<String> CATEGORIES = Set.of("民航史", "飞行原理", "航空法规");
     private static final String COMPETITION_SELECT =
             "SELECT c.*,(SELECT GROUP_CONCAT(category,' / ') FROM competition_category cc WHERE cc.competition_id=c.id ORDER BY category) categories FROM competition c ";
     private final Store store;
     private final Clock clock;
     private final AccountManagementService accountService;
+    private final CompetitionManagementService competitionManagementService;
     private final CompetitionExecutionService executionService;
     private final RegistrationManagementService registrationService;
     private final ResultService resultService;
@@ -35,6 +35,7 @@ public final class QuizService
             Clock clock,
             RoundFactory roundFactory,
             AccountManagementService accountService,
+            CompetitionManagementService competitionManagementService,
             CompetitionExecutionService executionService,
             RegistrationManagementService registrationService,
             ResultService resultService) {
@@ -42,6 +43,7 @@ public final class QuizService
         this.clock = clock;
         this.roundFactory = roundFactory;
         this.accountService = accountService;
+        this.competitionManagementService = competitionManagementService;
         this.executionService = executionService;
         this.registrationService = registrationService;
         this.resultService = resultService;
@@ -168,50 +170,7 @@ ORDER BY c.competition_time DESC,c.id
     @Override
     public synchronized String saveCompetition(Session s, String existing, CompetitionInput input) {
         auth(s, true);
-        return store.transaction(
-                db -> {
-                    String name = bounded(input.name(), 1, 50, "竞赛名称");
-                    String description = bounded(input.description(), 0, 200, "简介");
-                    require(
-                            input.registerStart() < input.registerEnd()
-                                    && input.registerEnd() < input.competitionTime(),
-                            "时间顺序必须为报名开始 < 报名截止 < 比赛时间");
-                    require(input.quota() > 0, "晋级名额必须大于 0");
-                    Set<String> categories = input.categories() == null ? Set.of() : Set.copyOf(input.categories());
-                    require(!categories.isEmpty() && CATEGORIES.containsAll(categories), "请至少选择一个有效竞赛分类");
-                    String cid = existing == null ? id("C") : existing;
-                    if (existing == null)
-                        db.execute(
-                                "INSERT INTO competition VALUES(?,?,?,?,?,?,?,?)",
-                                cid,
-                                name,
-                                description,
-                                input.registerStart(),
-                                input.registerEnd(),
-                                input.competitionTime(),
-                                "未开放",
-                                input.quota());
-                    else {
-                        editable(db, cid);
-                        for (Row used : db.list("SELECT DISTINCT q.category FROM round_question rq JOIN question q ON q.id=rq.question_id JOIN competition_round r ON r.id=rq.round_id WHERE r.competition_id=?", cid))
-                            require(categories.contains(used.text("category")), "现有题单仍在使用“" + used.text("category") + "”题目，请先调整题单");
-                        db.execute(
-                                "UPDATE competition SET"
-                                    + " name=?,description=?,register_start=?,register_end=?,competition_time=?,advance_count=?"
-                                    + " WHERE id=?",
-                                name,
-                                description,
-                                input.registerStart(),
-                                input.registerEnd(),
-                                input.competitionTime(),
-                                input.quota(),
-                                cid);
-                    }
-                    db.execute("DELETE FROM competition_category WHERE competition_id=?", cid);
-                    for (String category : categories)
-                        db.execute("INSERT INTO competition_category VALUES(?,?)", cid, category);
-                    return cid;
-                });
+        return competitionManagementService.save(existing, input);
     }
 
     private Row competition(UnitOfWork db, String cid) throws Exception {
@@ -225,24 +184,7 @@ ORDER BY c.competition_time DESC,c.id
     @Override
     public synchronized void registrationState(Session s, String cid, String state) {
         auth(s, true);
-        store.transaction(
-                db -> {
-                    Row c = competition(db, cid);
-                    String old = c.text("status");
-                    require(
-                            (old.equals("未开放") && state.equals("报名中"))
-                                    || (old.equals("报名中") && state.equals("报名截止")),
-                            "只允许依次开放报名、截止报名");
-                    if (state.equals("报名中"))
-                        require(
-                                now() >= c.number("register_start")
-                                        && now() < c.number("register_end"),
-                                "当前不在报名时间范围");
-                    if (state.equals("报名截止"))
-                        require(now() >= c.number("register_end"), "尚未到报名截止时间");
-                    db.execute("UPDATE competition SET status=? WHERE id=?", state, cid);
-                    return null;
-                });
+        competitionManagementService.changeRegistrationState(cid, state);
     }
 
     @Override
