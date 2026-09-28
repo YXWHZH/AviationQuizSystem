@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import cn.edu.aviationquiz.dao.Store;
 import cn.edu.aviationquiz.entity.*;
 import cn.edu.aviationquiz.entity.Models.*;
+import cn.edu.aviationquiz.exception.BusinessException;
+import cn.edu.aviationquiz.exception.DataAccessException;
 
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.io.TempDir;
@@ -131,7 +133,7 @@ class QuizServiceTest {
                 () -> service.setupStaff("other", "secret12", "老师"));
         Session a = player("userA"), b = player("userB");
         assertEquals(a, service.login(false, "userA", "secret12"));
-        assertThrows(IllegalArgumentException.class, () -> service.login(false, "userA", "bad"));
+        assertThrows(BusinessException.class, () -> service.login(false, "userA", "bad"));
         assertThrows(
                 IllegalArgumentException.class,
                 () -> service.register("userA", "secret12", new PlayerProfileInput("测试大学", "航空学院", "航空专业", "other001", "重复", "13800000001")));
@@ -396,7 +398,7 @@ class QuizServiceTest {
                                     + " disk failure'); END");
                     return null;
                 });
-        assertThrows(IllegalStateException.class, () -> service.archive(staff, f.cid));
+        assertThrows(DataAccessException.class, () -> service.archive(staff, f.cid));
         assertEquals(0, count("result"));
         assertEquals("比赛中", service.competitions().getFirst().text("status"));
         store.transaction(
@@ -411,7 +413,7 @@ class QuizServiceTest {
     @Test
     void foreignKeysAndTransactionsProtectDatabase() {
         assertThrows(
-                IllegalStateException.class,
+                DataAccessException.class,
                 () ->
                         store.transaction(
                                 db -> {
@@ -528,7 +530,7 @@ class QuizServiceTest {
         service.startRound(staff, f.cid);
         String release = service.publish(staff, f.cid);
         assertThrows(
-                IllegalStateException.class,
+                DataAccessException.class,
                 () ->
                         store.transaction(
                                 db -> {
@@ -543,7 +545,7 @@ class QuizServiceTest {
         service.submit(f.players.get(0), release, "A");
         clock.millis += 30_000;
         assertThrows(
-                IllegalStateException.class,
+                DataAccessException.class,
                 () ->
                         store.transaction(
                                 db -> {

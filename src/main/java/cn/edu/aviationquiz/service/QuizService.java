@@ -5,6 +5,7 @@ import cn.edu.aviationquiz.dao.Store.Row;
 import cn.edu.aviationquiz.dao.Store.UnitOfWork;
 import cn.edu.aviationquiz.entity.CompetitionRound;
 import cn.edu.aviationquiz.entity.Models.*;
+import cn.edu.aviationquiz.exception.BusinessException;
 
 import java.time.Clock;
 import java.util.*;
@@ -29,7 +30,7 @@ public final class QuizService {
     }
 
     private static void require(boolean valid, String message) {
-        if (!valid) throw new IllegalArgumentException(message);
+        if (!valid) throw new BusinessException(message);
     }
 
     private long now() {

@@ -1,5 +1,7 @@
 package cn.edu.aviationquiz.dao;
 
+import cn.edu.aviationquiz.exception.DataAccessException;
+
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.sql.*;
@@ -85,8 +87,8 @@ public final class Store {
     private static RuntimeException failure(Exception ex) {
         if (ex instanceof RuntimeException runtime) return runtime;
         if (ex instanceof SQLException sql && sql.getErrorCode() == 19)
-            return new IllegalStateException("无法保存：存在重复数据、无效关联或状态冲突，请检查后重试", ex);
-        return new IllegalStateException("数据库操作失败，请检查文件访问权限和磁盘空间后重试", ex);
+            return new DataAccessException("无法保存：存在重复数据、无效关联或状态冲突，请检查后重试", ex);
+        return new DataAccessException("数据库操作失败，请检查文件访问权限和磁盘空间后重试", ex);
     }
 
     public record Row(Map<String, Object> values) {
