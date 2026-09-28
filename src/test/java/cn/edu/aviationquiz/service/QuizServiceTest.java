@@ -5,12 +5,14 @@ import static org.junit.jupiter.api.Assertions.*;
 import cn.edu.aviationquiz.dao.Store;
 import cn.edu.aviationquiz.dao.jdbc.JdbcGameDao;
 import cn.edu.aviationquiz.dao.jdbc.JdbcRegistrationDao;
+import cn.edu.aviationquiz.dao.jdbc.JdbcResultDao;
 import cn.edu.aviationquiz.entity.*;
 import cn.edu.aviationquiz.entity.Models.*;
 import cn.edu.aviationquiz.exception.BusinessException;
 import cn.edu.aviationquiz.exception.DataAccessException;
 import cn.edu.aviationquiz.service.impl.CompetitionExecutionServiceImpl;
 import cn.edu.aviationquiz.service.impl.RegistrationManagementServiceImpl;
+import cn.edu.aviationquiz.service.impl.ResultServiceImpl;
 
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.io.TempDir;
@@ -134,7 +136,8 @@ class QuizServiceTest {
                 store,
                 clock,
                 new CompetitionExecutionServiceImpl(new JdbcGameDao(store), clock),
-                new RegistrationManagementServiceImpl(new JdbcRegistrationDao(store), clock));
+                new RegistrationManagementServiceImpl(new JdbcRegistrationDao(store), clock),
+                new ResultServiceImpl(new JdbcResultDao(store)));
     }
 
     @Test

@@ -20,17 +20,20 @@ public final class QuizService implements CompetitionRoomService, RegistrationUs
     private final Clock clock;
     private final CompetitionExecutionService executionService;
     private final RegistrationManagementService registrationService;
+    private final ResultService resultService;
     private final Map<String, Session> sessions = new HashMap<>();
 
     public QuizService(
             Store store,
             Clock clock,
             CompetitionExecutionService executionService,
-            RegistrationManagementService registrationService) {
+            RegistrationManagementService registrationService,
+            ResultService resultService) {
         this.store = store;
         this.clock = clock;
         this.executionService = executionService;
         this.registrationService = registrationService;
+        this.resultService = resultService;
         recover();
     }
 
@@ -900,96 +903,19 @@ WHERE r.id IS NOT NULL OR v.id IS NOT NULL ORDER BY c.competition_time DESC
                 });
     }
 
-    private List<RankingEntry> ranking(UnitOfWork db, String cid, boolean preview)
-            throws Exception {
-        Row c = competition(db, cid);
-        var rows =
-                db.list(
-                        """
-SELECT p.id,p.name,COALESCE(g.name,'待分组') group_name,
-COALESCE(scores.total,0) total,COALESCE(scores.correct_count,0) correct_count,COALESCE(scores.elapsed,0) elapsed,
-result.final_score,result.ranking,result.promoted FROM registration reg JOIN player p ON p.id=reg.player_id
-LEFT JOIN group_assignment ga ON ga.registration_id=reg.id LEFT JOIN competition_group g ON g.id=ga.group_id
-LEFT JOIN (SELECT a.player_id,SUM(a.score_change) total,SUM(a.correct) correct_count,SUM(a.submitted_at-qr.started_at) elapsed
-  FROM answer_record a JOIN question_release qr ON qr.id=a.release_id JOIN group_round gr ON gr.id=qr.group_round_id
-  JOIN competition_round r ON r.id=gr.round_id WHERE r.competition_id=? GROUP BY a.player_id) scores ON scores.player_id=p.id
-LEFT JOIN result ON result.competition_id=reg.competition_id AND result.player_id=p.id
-WHERE reg.competition_id=? AND reg.status='有效'
-""",
-                        cid,
-                        cid);
-        List<Row> sorted = new ArrayList<>(rows);
-        boolean archived = c.text("status").equals("已结束");
-        sorted.sort(
-                archived
-                        ? Comparator.comparingLong(r -> r.number("ranking"))
-                        : Comparator.<Row>comparingLong(r -> r.number("total"))
-                                .reversed()
-                                .thenComparing(
-                                        Comparator.<Row>comparingLong(
-                                                        r -> r.number("correct_count"))
-                                                .reversed())
-                                .thenComparingLong(r -> r.number("elapsed"))
-                                .thenComparing(r -> r.text("id")));
-        List<RankingEntry> result = new ArrayList<>();
-        for (int i = 0; i < sorted.size(); i++) {
-            Row r = sorted.get(i);
-            int rank = i + 1;
-            String promotion =
-                    archived
-                            ? (r.number("promoted") == 1 ? "晋级" : "未晋级")
-                            : preview
-                                    ? (rank <= c.number("advance_count") ? "晋级（预览）" : "未晋级（预览）")
-                                    : "待判定";
-            result.add(
-                    new RankingEntry(
-                            r.text("id"),
-                            r.text("name"),
-                            r.text("group_name"),
-                            (int) r.number(archived ? "final_score" : "total"),
-                            (int) r.number("correct_count"),
-                            r.number("elapsed"),
-                            rank,
-                            promotion));
-        }
-        return List.copyOf(result);
-    }
-
     public synchronized List<RankingEntry> ranking(Session s, String cid) {
         signed(s);
-        return store.transaction(db -> ranking(db, cid, false));
+        return resultService.ranking(cid);
     }
 
     public synchronized List<RankingEntry> preview(Session s, String cid) {
         auth(s, true);
-        return store.transaction(
-                db -> {
-                    running(db, cid);
-                    require(current(db, cid) == null, "所有小组完成全部轮次后才能判定晋级");
-                    return ranking(db, cid, true);
-                });
+        return resultService.preview(cid);
     }
 
     public synchronized void archive(Session s, String cid) {
         auth(s, true);
-        store.transaction(
-                db -> {
-                    Row c = competition(db, cid);
-                    if (c.text("status").equals("已结束")) return null;
-                    running(db, cid);
-                    require(current(db, cid) == null, "所有轮次尚未完成");
-                    for (RankingEntry r : ranking(db, cid, true))
-                        db.execute(
-                                "INSERT INTO result VALUES(?,?,?,?,?,?)",
-                                id("RS"),
-                                cid,
-                                r.playerId(),
-                                r.score(),
-                                r.rank(),
-                                r.rank() <= c.number("advance_count") ? 1 : 0);
-                    db.execute("UPDATE competition SET status='已结束' WHERE id=?", cid);
-                    return null;
-                });
+        resultService.archive(cid);
     }
 
     public synchronized List<Row> history(Session s) {
@@ -1012,25 +938,29 @@ WHERE reg.competition_id=? AND reg.status='有效'
 
     public synchronized String exportCsv(Session s, String cid) {
         auth(s, true);
-        return store.transaction(
+        store.transaction(
                 db -> {
-                    require(competition(db, cid).text("status").equals("已结束"), "只能导出已归档成绩");
-                    StringBuilder csv = new StringBuilder("\uFEFF名次,选手编号,姓名,小组,最终成绩,晋级结果\r\n");
-                    for (RankingEntry r : ranking(db, cid, false))
-                        csv.append(r.rank())
-                                .append(',')
-                                .append(cell(r.playerId()))
-                                .append(',')
-                                .append(cell(r.name()))
-                                .append(',')
-                                .append(cell(r.group()))
-                                .append(',')
-                                .append(r.score())
-                                .append(',')
-                                .append(cell(r.promotion()))
-                                .append("\r\n");
-                    return csv.toString();
+                    require(
+                            competition(db, cid).text("status").equals("已结束"),
+                            "只能导出已归档成绩");
+                    return null;
                 });
+        StringBuilder csv =
+                new StringBuilder("\uFEFF名次,选手编号,姓名,小组,最终成绩,晋级结果\r\n");
+        for (RankingEntry r : resultService.ranking(cid))
+            csv.append(r.rank())
+                    .append(',')
+                    .append(cell(r.playerId()))
+                    .append(',')
+                    .append(cell(r.name()))
+                    .append(',')
+                    .append(cell(r.group()))
+                    .append(',')
+                    .append(r.score())
+                    .append(',')
+                    .append(cell(r.promotion()))
+                    .append("\r\n");
+        return csv.toString();
     }
 
     private static String cell(String value) {

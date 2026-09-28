@@ -5,10 +5,12 @@ import static org.junit.jupiter.api.Assertions.*;
 import cn.edu.aviationquiz.dao.Store;
 import cn.edu.aviationquiz.dao.jdbc.JdbcGameDao;
 import cn.edu.aviationquiz.dao.jdbc.JdbcRegistrationDao;
+import cn.edu.aviationquiz.dao.jdbc.JdbcResultDao;
 import cn.edu.aviationquiz.entity.Models.*;
 import cn.edu.aviationquiz.service.QuizService;
 import cn.edu.aviationquiz.service.impl.CompetitionExecutionServiceImpl;
 import cn.edu.aviationquiz.service.impl.RegistrationManagementServiceImpl;
+import cn.edu.aviationquiz.service.impl.ResultServiceImpl;
 
 import javafx.application.Platform;
 import javafx.scene.*;
@@ -150,7 +152,8 @@ class QuizWindowsTest {
                         clock,
                         new CompetitionExecutionServiceImpl(new JdbcGameDao(store), clock),
                         new RegistrationManagementServiceImpl(
-                                new JdbcRegistrationDao(store), clock));
+                                new JdbcRegistrationDao(store), clock),
+                        new ResultServiceImpl(new JdbcResultDao(store)));
         service.setupStaff("admin01", "secret12", "李老师");
         Session staff = service.login(true, "admin01", "secret12");
         service.register("userA", "secret12", new PlayerProfileInput("测试大学", "航空学院", "飞行专业", "20260001", "张三", "13800000001"));
