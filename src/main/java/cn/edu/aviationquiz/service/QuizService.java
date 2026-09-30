@@ -26,6 +26,7 @@ public final class QuizService
     private final Clock clock;
     private final AccountManagementService accountService;
     private final CompetitionManagementService competitionManagementService;
+    private final CompetitionLiveService competitionLiveService;
     private final CompetitionExecutionService executionService;
     private final QuestionBankService questionBankService;
     private final RegistrationManagementService registrationService;
@@ -37,6 +38,7 @@ public final class QuizService
             Clock clock,
             AccountManagementService accountService,
             CompetitionManagementService competitionManagementService,
+            CompetitionLiveService competitionLiveService,
             CompetitionExecutionService executionService,
             QuestionBankService questionBankService,
             RegistrationManagementService registrationService,
@@ -45,6 +47,7 @@ public final class QuizService
         this.clock = clock;
         this.accountService = accountService;
         this.competitionManagementService = competitionManagementService;
+        this.competitionLiveService = competitionLiveService;
         this.executionService = executionService;
         this.questionBankService = questionBankService;
         this.registrationService = registrationService;
@@ -111,10 +114,6 @@ public final class QuizService
     public synchronized void updatePlayerProfile(Session s, PlayerProfileInput profile) {
         auth(s, false);
         accountService.updatePlayerProfile(s.id(), profile);
-    }
-
-    private void requireComplete(UnitOfWork db, Session s) throws Exception {
-        require(db.one("SELECT profile_complete FROM player WHERE id=?", s.id()).number("profile_complete") == 1, "请先完善个人资料");
     }
 
     @Override
@@ -360,344 +359,72 @@ WHERE r.id IS NOT NULL OR v.id IS NOT NULL ORDER BY c.competition_time DESC
     @Override
     public synchronized void startCompetition(Session s, String cid) {
         auth(s, true);
-        store.transaction(
-                db -> {
-                    require(competition(db, cid).text("status").equals("报名截止"), "请先截止报名");
-                    require(
-                            !db.exists("SELECT id FROM competition WHERE status='比赛中'"),
-                            "已有一场竞赛正在运行");
-                    require(
-                            db.exists(
-                                    "SELECT id FROM registration WHERE competition_id=? AND"
-                                            + " status='有效'",
-                                    cid),
-                            "没有正式参赛选手");
-                    require(
-                            !db.exists(
-                                    "SELECT r.id FROM registration r LEFT JOIN group_assignment a"
-                                        + " ON a.registration_id=r.id WHERE r.competition_id=? AND"
-                                        + " r.status='有效' AND a.id IS NULL",
-                                    cid),
-                            "还有选手未分组");
-                    var gs = db.list("SELECT * FROM competition_group WHERE competition_id=?", cid);
-                    var rs = db.list("SELECT * FROM competition_round WHERE competition_id=?", cid);
-                    require(!gs.isEmpty() && !rs.isEmpty(), "请配置小组和轮次");
-                    for (Row g : gs)
-                        require(
-                                db.exists(
-                                        "SELECT id FROM group_assignment WHERE group_id=?",
-                                        g.text("id")),
-                                "存在空小组：" + g.text("name"));
-                    for (Row r : rs)
-                        require(
-                                db.exists(
-                                        "SELECT id FROM round_question WHERE round_id=?",
-                                        r.text("id")),
-                                "轮次尚未配置题目：" + r.text("name"));
-                    for (Row g : gs)
-                        for (Row r : rs)
-                            db.execute(
-                                    "INSERT INTO group_round VALUES(?,?,?,'待开始')",
-                                    id("GR"),
-                                    g.text("id"),
-                                    r.text("id"));
-                    db.execute("UPDATE competition SET status='比赛中' WHERE id=?", cid);
-                    return null;
-                });
-    }
-
-    private Row current(UnitOfWork db, String cid) throws Exception {
-        var rows =
-                db.list(
-                        "SELECT gr.*,g.name group_name,r.name round_name,r.time_limit,r.round_type"
-                            + " FROM group_round gr JOIN competition_group g ON g.id=gr.group_id"
-                            + " JOIN competition_round r ON r.id=gr.round_id WHERE"
-                            + " g.competition_id=? AND gr.status<>'已完成' ORDER BY"
-                            + " g.sequence_no,r.sequence_no LIMIT 1",
-                        cid);
-        return rows.isEmpty() ? null : rows.getFirst();
+        competitionLiveService.startCompetition(cid);
     }
 
     @Override
     public synchronized CompetitionProgressView progress(Session s, String cid) {
         auth(s, true);
-        return store.transaction(
-                db -> {
-                    Row row = current(db, cid);
-                    return row == null
-                            ? null
-                            : new CompetitionProgressView(
-                                    row.text("id"),
-                                    row.text("group_id"),
-                                    row.text("round_id"),
-                                    row.text("group_name"),
-                                    row.text("round_name"),
-                                    (int) row.number("time_limit"),
-                                    row.text("round_type"),
-                                    row.text("status"));
-                });
+        return competitionLiveService.progress(cid);
     }
 
     @Override
     public synchronized int completedQuestions(Session s, String cid) {
         auth(s, true);
-        return store.transaction(
-                db -> {
-                    Row gr = current(db, cid);
-                    return gr == null
-                            ? 0
-                            : (int)
-                                    db.one(
-                                                    "SELECT COUNT(*) n FROM question_release WHERE"
-                                                        + " group_round_id=? AND closed_at IS NOT"
-                                                        + " NULL",
-                                                    gr.text("id"))
-                                            .number("n");
-                });
-    }
-
-    private void running(UnitOfWork db, String cid) throws Exception {
-        require(competition(db, cid).text("status").equals("比赛中"), "竞赛不在比赛中");
+        return competitionLiveService.completedQuestions(cid);
     }
 
     @Override
     public synchronized void startRound(Session s, String cid) {
         auth(s, true);
-        store.transaction(
-                db -> {
-                    running(db, cid);
-                    Row gr = current(db, cid);
-                    require(gr != null && gr.text("status").equals("待开始"), "没有待开始轮次");
-                    db.execute("UPDATE group_round SET status='进行中' WHERE id=?", gr.text("id"));
-                    return null;
-                });
+        competitionLiveService.startRound(cid);
     }
 
     @Override
     public synchronized String publish(Session s, String cid) {
         auth(s, true);
-        recover();
-        return store.transaction(
-                db -> {
-                    running(db, cid);
-                    Row gr = current(db, cid);
-                    require(gr != null && gr.text("status").equals("进行中"), "请先开始当前轮次");
-                    require(
-                            !db.exists("SELECT id FROM question_release WHERE closed_at IS NULL"),
-                            "当前题目尚未结束");
-                    var next =
-                            db.list(
-                                    "SELECT rq.* FROM round_question rq WHERE rq.round_id=? AND NOT"
-                                            + " EXISTS(SELECT 1 FROM question_release qr WHERE"
-                                            + " qr.round_question_id=rq.id AND qr.group_round_id=?)"
-                                            + " ORDER BY rq.sequence_no LIMIT 1",
-                                    gr.text("round_id"),
-                                    gr.text("id"));
-                    require(!next.isEmpty(), "本轮全部题目已发布，请结束轮次");
-                    String release = id("PUB");
-                    long start = now();
-                    db.execute(
-                            "INSERT INTO question_release VALUES(?,?,?,?,?,NULL)",
-                            release,
-                            gr.text("id"),
-                            next.getFirst().text("id"),
-                            start,
-                            Math.addExact(
-                                    start, Math.multiplyExact(gr.number("time_limit"), 1000)));
-                    return release;
-                });
-    }
-
-    private static final String RELEASE_SQL =
-            "SELECT qr.*,gr.group_id,gr.round_id,r.competition_id,r.round_type,r.name"
-                + " round_name,q.content,q.option_a,q.option_b,q.option_c,q.option_d,q.correct_answer"
-                + " FROM question_release qr JOIN group_round gr ON gr.id=qr.group_round_id JOIN"
-                + " competition_round r ON r.id=gr.round_id JOIN round_question rq ON"
-                + " rq.id=qr.round_question_id JOIN question q ON q.id=rq.question_id ";
-
-    private List<Row> members(UnitOfWork db, String gid) throws Exception {
-        return db.list(
-                "SELECT r.player_id FROM group_assignment a JOIN registration r ON"
-                        + " r.id=a.registration_id WHERE a.group_id=? AND r.status='有效'",
-                gid);
+        return competitionLiveService.publish(cid);
     }
 
     @Override
     public synchronized int submit(Session s, String release, String option) {
         auth(s, false);
-        recover();
+        competitionLiveService.recover();
         return executionService.submitAnswer(s.id(), release, option);
     }
 
     public synchronized boolean recover() {
-        return store.transaction(
-                db -> {
-                    var expired =
-                            db.list(
-                                    RELEASE_SQL + "WHERE qr.closed_at IS NULL AND qr.deadline<=?",
-                                    now());
-                    for (Row qr : expired) {
-                        for (Row p : members(db, qr.text("group_id")))
-                            if (!db.exists(
-                                    "SELECT id FROM answer_record WHERE release_id=? AND"
-                                            + " player_id=?",
-                                    qr.text("id"),
-                                    p.text("player_id")))
-                                db.execute(
-                                        "INSERT OR IGNORE INTO timeout_record VALUES(?,?,?,?)",
-                                        id("T"),
-                                        qr.text("id"),
-                                        p.text("player_id"),
-                                        now());
-                        db.execute(
-                                "UPDATE question_release SET closed_at=deadline WHERE id=?",
-                                qr.text("id"));
-                    }
-                    return !expired.isEmpty();
-                });
+        return competitionLiveService.recover();
     }
 
     @Override
     public synchronized ActiveReleaseView activeRelease(Session s, String cid) {
         auth(s, true);
-        return store.transaction(
-                db -> {
-                    var rows =
-                            db.list(
-                                    RELEASE_SQL
-                                            + "WHERE r.competition_id=? AND qr.closed_at IS NULL",
-                                    cid);
-                    if (rows.isEmpty()) return null;
-                    Row row = rows.getFirst();
-                    return new ActiveReleaseView(
-                            row.text("id"), row.text("content"), row.number("deadline"));
-                });
+        return competitionLiveService.activeRelease(cid);
     }
 
     @Override
     public synchronized void closeQuestion(Session s, String cid) {
         auth(s, true);
-        recover();
-        store.transaction(
-                db -> {
-                    running(db, cid);
-                    Row qr =
-                            db.one(
-                                    RELEASE_SQL
-                                            + "WHERE r.competition_id=? AND qr.closed_at IS NULL",
-                                    cid);
-                    long count =
-                            db.one(
-                                            "SELECT COUNT(*) n FROM answer_record WHERE"
-                                                    + " release_id=?",
-                                            qr.text("id"))
-                                    .number("n");
-                    require(count == members(db, qr.text("group_id")).size(), "还有选手未提交，请等待倒计时结束");
-                    db.execute(
-                            "UPDATE question_release SET closed_at=? WHERE id=?",
-                            now(),
-                            qr.text("id"));
-                    return null;
-                });
+        competitionLiveService.closeQuestion(cid);
     }
 
     @Override
     public synchronized void finishRound(Session s, String cid) {
         auth(s, true);
-        recover();
-        store.transaction(
-                db -> {
-                    running(db, cid);
-                    Row gr = current(db, cid);
-                    require(gr != null && gr.text("status").equals("进行中"), "没有进行中的轮次");
-                    require(
-                            !db.exists(
-                                    "SELECT rq.id FROM round_question rq WHERE rq.round_id=? AND"
-                                        + " NOT EXISTS(SELECT 1 FROM question_release qr WHERE"
-                                        + " qr.group_round_id=? AND qr.round_question_id=rq.id AND"
-                                        + " qr.closed_at IS NOT NULL)",
-                                    gr.text("round_id"),
-                                    gr.text("id")),
-                            "本轮还有未完成题目");
-                    db.execute("UPDATE group_round SET status='已完成' WHERE id=?", gr.text("id"));
-                    return null;
-                });
+        competitionLiveService.finishRound(cid);
     }
 
     @Override
     public synchronized PublishedQuestionView room(Session s, String cid) {
         auth(s, false);
-        recover();
-        return store.transaction(
-                db -> {
-                    requireComplete(db, s);
-                    var rows =
-                            db.list(
-                                    RELEASE_SQL
-                                            + "JOIN group_assignment ga ON ga.group_id=gr.group_id"
-                                            + " JOIN registration reg ON reg.id=ga.registration_id"
-                                            + " WHERE r.competition_id=? AND reg.player_id=? ORDER"
-                                            + " BY qr.started_at DESC,qr.rowid DESC LIMIT 1",
-                                    cid,
-                                    s.id());
-                    if (rows.isEmpty()) return null;
-                    Row qr = rows.getFirst();
-                    var answers =
-                            db.list(
-                                    "SELECT * FROM answer_record WHERE release_id=? AND"
-                                            + " player_id=?",
-                                    qr.text("id"),
-                                    s.id());
-                    Row a = answers.isEmpty() ? null : answers.getFirst();
-                    String status =
-                            a != null
-                                    ? (a.number("correct") == 1 ? "回答正确" : "回答错误")
-                                    : qr.nil("closed_at") ? "可作答" : "已超时，本题 0 分";
-                    return new PublishedQuestionView(
-                            qr.text("id"),
-                            qr.text("round_name"),
-                            qr.text("content"),
-                            List.of(
-                                    qr.text("option_a"),
-                                    qr.text("option_b"),
-                                    qr.text("option_c"),
-                                    qr.text("option_d")),
-                            qr.number("deadline"),
-                            status,
-                            a == null ? "" : a.text("user_answer"),
-                            a == null ? null : (int) a.number("score_change"));
-                });
+        return competitionLiveService.room(s.id(), cid);
     }
 
     @Override
     public synchronized List<PlayerSubmissionView> monitor(Session s, String cid) {
         auth(s, true);
-        return store.transaction(
-                db -> {
-                    Row gr = current(db, cid);
-                    if (gr == null) return List.of();
-                    return db.list(
-                                    "SELECT p.name,CASE WHEN a.id IS NOT NULL THEN '已提交' WHEN t.id IS NOT"
-                                        + " NULL THEN '超时' ELSE '待提交' END answer_status FROM"
-                                        + " group_assignment ga JOIN registration reg ON"
-                                        + " reg.id=ga.registration_id JOIN player p ON p.id=reg.player_id"
-                                        + " LEFT JOIN answer_record a ON a.player_id=p.id AND"
-                                        + " a.release_id=(SELECT id FROM question_release WHERE"
-                                        + " group_round_id=? ORDER BY rowid DESC LIMIT 1) LEFT JOIN"
-                                        + " timeout_record t ON t.player_id=p.id AND t.release_id=(SELECT"
-                                        + " id FROM question_release WHERE group_round_id=? ORDER BY rowid"
-                                        + " DESC LIMIT 1) WHERE ga.group_id=?",
-                                    gr.text("id"),
-                                    gr.text("id"),
-                                    gr.text("group_id"))
-                            .stream()
-                            .map(
-                                    row ->
-                                            new PlayerSubmissionView(
-                                                    row.text("name"),
-                                                    row.text("answer_status")))
-                            .toList();
-                });
+        return competitionLiveService.monitor(cid);
     }
 
     @Override

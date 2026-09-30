@@ -3,6 +3,7 @@ package cn.edu.aviationquiz.config;
 import cn.edu.aviationquiz.dao.Store;
 import cn.edu.aviationquiz.dao.jdbc.JdbcAccountDao;
 import cn.edu.aviationquiz.dao.jdbc.JdbcCompetitionDao;
+import cn.edu.aviationquiz.dao.jdbc.JdbcCompetitionLiveDao;
 import cn.edu.aviationquiz.dao.jdbc.JdbcGameDao;
 import cn.edu.aviationquiz.dao.jdbc.JdbcQuestionBankDao;
 import cn.edu.aviationquiz.dao.jdbc.JdbcRegistrationDao;
@@ -11,6 +12,7 @@ import cn.edu.aviationquiz.service.QuizService;
 import cn.edu.aviationquiz.service.RoundFactory;
 import cn.edu.aviationquiz.service.impl.AccountManagementServiceImpl;
 import cn.edu.aviationquiz.service.impl.CompetitionManagementServiceImpl;
+import cn.edu.aviationquiz.service.impl.CompetitionLiveServiceImpl;
 import cn.edu.aviationquiz.service.impl.CompetitionExecutionServiceImpl;
 import cn.edu.aviationquiz.service.impl.QuestionBankServiceImpl;
 import cn.edu.aviationquiz.service.impl.RegistrationManagementServiceImpl;
@@ -42,6 +44,8 @@ public final class AppContext implements AutoCloseable {
                         new AccountManagementServiceImpl(new JdbcAccountDao(store)),
                         new CompetitionManagementServiceImpl(
                                 new JdbcCompetitionDao(store), clock),
+                        new CompetitionLiveServiceImpl(
+                                new JdbcCompetitionLiveDao(store), clock),
                         new CompetitionExecutionServiceImpl(
                                 new JdbcGameDao(store), clock, roundFactory),
                         new QuestionBankServiceImpl(
