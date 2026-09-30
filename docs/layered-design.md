@@ -4,23 +4,23 @@
 
 ## 1. 分层边界
 
-当前优先完成了五个核心业务闭环：账号与资料、竞赛配置、选手提交答案、报名与分组、排名与归档。它们遵循统一的依赖方向：
+当前优先完成了六个核心业务闭环：账号与资料、竞赛配置、题库与轮次题单、选手提交答案、报名与分组、排名与归档。它们遵循统一的依赖方向：
 
 `View → Controller → Service 接口 → Service 实现 → DAO 接口 → JDBC DAO → SQLite`
 
 | 层 | 当前类 | 职责 |
 |---|---|---|
 | View | `QuizWindows` | 读取控件值、展示结果和错误，不写 SQL、不计算得分 |
-| Controller | `AccountController`、`CompetitionManagementController`、`CompetitionRoomController`、`RegistrationController`、`ResultController` | 检查页面输入是否缺失，调用用例接口 |
-| 用例接口 | `AccountUseCases`、`CompetitionManagementUseCases`、`CompetitionRoomService`、`RegistrationUseCases`、`ResultUseCases` | 定义 View 可以发起的系统操作 |
+| Controller | `AccountController`、`CompetitionManagementController`、`QuestionBankController`、`CompetitionRoomController`、`RegistrationController`、`ResultController` | 检查页面输入是否缺失，调用用例接口 |
+| 用例接口 | `AccountUseCases`、`CompetitionManagementUseCases`、`QuestionBankUseCases`、`CompetitionRoomService`、`RegistrationUseCases`、`ResultUseCases` | 定义 View 可以发起的系统操作 |
 | 门面服务 | `QuizService` | 验证会话和角色，把核心规则委托给领域服务 |
-| 领域服务 | `AccountManagementServiceImpl`、`CompetitionManagementServiceImpl`、`CompetitionExecutionServiceImpl`、`RegistrationManagementServiceImpl`、`ResultServiceImpl` | 执行业务规则、控制事务用例 |
-| DAO 接口 | `AccountDao`、`CompetitionDao`、`GameDao`、`RegistrationDao`、`ResultDao` | 隔离业务规则与 JDBC/SQLite |
-| DAO 实现 | `JdbcAccountDao`、`JdbcCompetitionDao`、`JdbcGameDao`、`JdbcRegistrationDao`、`JdbcResultDao` | 查询、保存并映射数据库记录 |
+| 领域服务 | `AccountManagementServiceImpl`、`CompetitionManagementServiceImpl`、`QuestionBankServiceImpl`、`CompetitionExecutionServiceImpl`、`RegistrationManagementServiceImpl`、`ResultServiceImpl` | 执行业务规则、控制事务用例 |
+| DAO 接口 | `AccountDao`、`CompetitionDao`、`QuestionBankDao`、`GameDao`、`RegistrationDao`、`ResultDao` | 隔离业务规则与 JDBC/SQLite |
+| DAO 实现 | `JdbcAccountDao`、`JdbcCompetitionDao`、`JdbcQuestionBankDao`、`JdbcGameDao`、`JdbcRegistrationDao`、`JdbcResultDao` | 查询、保存并映射数据库记录 |
 | Entity | `CompetitionRound` 及子类、各类 Context/Record | 表达业务对象和跨层不可变数据 |
 | 组装入口 | `AppContext` | 只在程序入口创建实现类并注入接口依赖 |
 
-竞赛列表查询、题库与轮次题单维护、现场运行控制仍有部分由 `QuizService` 直接访问 `Store`，属于后续拆分范围；因此不能宣称整个系统已经全部完成 DAO 分层。
+竞赛综合列表查询与现场运行控制仍有部分由 `QuizService` 直接访问 `Store`，属于后续拆分范围；因此不能宣称整个系统已经全部完成 DAO 分层。
 
 ## 2. 核心类结构
 
@@ -29,12 +29,14 @@ classDiagram
     class QuizWindows
     class AccountController
     class CompetitionManagementController
+    class QuestionBankController
     class CompetitionRoomController
     class RegistrationController
     class ResultController
 
     class AccountUseCases { <<interface>> }
     class CompetitionManagementUseCases { <<interface>> }
+    class QuestionBankUseCases { <<interface>> }
     class CompetitionRoomService { <<interface>> }
     class RegistrationUseCases { <<interface>> }
     class ResultUseCases { <<interface>> }
@@ -42,58 +44,69 @@ classDiagram
 
     class AccountManagementService { <<interface>> }
     class CompetitionManagementService { <<interface>> }
+    class QuestionBankService { <<interface>> }
     class CompetitionExecutionService { <<interface>> }
     class RegistrationManagementService { <<interface>> }
     class ResultService { <<interface>> }
     class AccountManagementServiceImpl
     class CompetitionManagementServiceImpl
+    class QuestionBankServiceImpl
     class CompetitionExecutionServiceImpl
     class RegistrationManagementServiceImpl
     class ResultServiceImpl
 
     class AccountDao { <<interface>> }
     class CompetitionDao { <<interface>> }
+    class QuestionBankDao { <<interface>> }
     class GameDao { <<interface>> }
     class RegistrationDao { <<interface>> }
     class ResultDao { <<interface>> }
     class JdbcAccountDao
     class JdbcCompetitionDao
+    class JdbcQuestionBankDao
     class JdbcGameDao
     class JdbcRegistrationDao
     class JdbcResultDao
 
     QuizWindows --> AccountController
     QuizWindows --> CompetitionManagementController
+    QuizWindows --> QuestionBankController
     QuizWindows --> CompetitionRoomController
     QuizWindows --> RegistrationController
     QuizWindows --> ResultController
     AccountController --> AccountUseCases
     CompetitionManagementController --> CompetitionManagementUseCases
+    QuestionBankController --> QuestionBankUseCases
     CompetitionRoomController --> CompetitionRoomService
     RegistrationController --> RegistrationUseCases
     ResultController --> ResultUseCases
     QuizService ..|> AccountUseCases
     QuizService ..|> CompetitionManagementUseCases
+    QuizService ..|> QuestionBankUseCases
     QuizService ..|> CompetitionRoomService
     QuizService ..|> RegistrationUseCases
     QuizService ..|> ResultUseCases
     QuizService --> AccountManagementService
     QuizService --> CompetitionManagementService
+    QuizService --> QuestionBankService
     QuizService --> CompetitionExecutionService
     QuizService --> RegistrationManagementService
     QuizService --> ResultService
     AccountManagementServiceImpl ..|> AccountManagementService
     CompetitionManagementServiceImpl ..|> CompetitionManagementService
+    QuestionBankServiceImpl ..|> QuestionBankService
     CompetitionExecutionServiceImpl ..|> CompetitionExecutionService
     RegistrationManagementServiceImpl ..|> RegistrationManagementService
     ResultServiceImpl ..|> ResultService
     AccountManagementServiceImpl --> AccountDao
     CompetitionManagementServiceImpl --> CompetitionDao
+    QuestionBankServiceImpl --> QuestionBankDao
     CompetitionExecutionServiceImpl --> GameDao
     RegistrationManagementServiceImpl --> RegistrationDao
     ResultServiceImpl --> ResultDao
     JdbcAccountDao ..|> AccountDao
     JdbcCompetitionDao ..|> CompetitionDao
+    JdbcQuestionBankDao ..|> QuestionBankDao
     JdbcGameDao ..|> GameDao
     JdbcRegistrationDao ..|> RegistrationDao
     JdbcResultDao ..|> ResultDao
@@ -171,6 +184,15 @@ classDiagram
 5. 状态流转只允许“未开放 → 报名中 → 报名截止”，并以注入的 `Clock` 检查报名开始与截止时间。
 6. `CompetitionDao` 在同一事务中保存竞赛与分类，`JdbcCompetitionDao` 封装所有相关 SQL。
 
+### 3.6 题库、轮次与题单配置
+
+1. `QuizWindows` 调用 `QuestionBankController` 查询或维护题目、轮次和轮次题单，不再直接调用完整的 `QuizService`。
+2. Controller 检查竞赛、题目、轮次及题单编号等页面输入，通过 `QuestionBankUseCases` 发起操作。
+3. `QuizService` 只验证工作人员会话，随后委托 `QuestionBankService`。
+4. `QuestionBankServiceImpl` 校验三类知识分类、四个非空选项、标准答案、题目引用锁定、轮次顺序与时限。
+5. 新增或修改轮次时通过 `RoundFactory` 验证并创建多态计分规则；添加题目时检查启用状态、竞赛分类及同场不重复用题。
+6. `QuestionBankDao` 在事务中完成读写，`JdbcQuestionBankDao` 封装 SQL；查询向上返回 `QuestionView`、`RoundView`、`RoundQuestionView`，不会把数据库 `Row` 泄漏给 View。
+
 ## 4. 扩展性如何体现
 
 - **继承与多态**：`RequiredRound`、`BuzzerRound`、`RiskRound` 继承抽象类 `CompetitionRound`，比赛执行服务只调用抽象方法，不写三套判分分支。
@@ -185,9 +207,10 @@ classDiagram
 - `CompetitionExecutionServiceTest`：证明答案校验、保存以及自定义计分工厂可替换。
 - `AccountControllerTest`、`AccountManagementServiceTest`：证明账号界面委托、密码哈希认证及资料唯一性规则。
 - `CompetitionManagementControllerTest`、`CompetitionManagementServiceTest`：证明竞赛表单委托、分类约束和状态时间窗口。
+- `QuestionBankControllerTest`、`QuestionBankServiceTest`：证明题库与题单委托、类型化查询、引用锁定、多态轮次和重复用题约束。
 - `StandardRoundFactoryTest`：证明三种现有规则和新增 BONUS 规则均通过统一接口创建。
 - `RegistrationControllerTest`、`ResultControllerTest`：证明 Controller 只处理输入并委托接口。
 - `ResultServiceTest`：证明稳定排序、未完成轮次拦截和归档事务。
 - `QuizWindowsTest`：使用临时 SQLite 数据库验证界面主流程与小组数据隔离。
 
-当前完整命令 `mvn -Dquiz.uiTest=true clean test package` 共通过 44 项测试。
+当前完整命令 `mvn -Dquiz.uiTest=true clean test package` 共通过 53 项测试。
