@@ -6,12 +6,14 @@ import cn.edu.aviationquiz.dao.Store;
 import cn.edu.aviationquiz.dao.jdbc.JdbcAccountDao;
 import cn.edu.aviationquiz.dao.jdbc.JdbcCompetitionDao;
 import cn.edu.aviationquiz.dao.jdbc.JdbcGameDao;
+import cn.edu.aviationquiz.dao.jdbc.JdbcQuestionBankDao;
 import cn.edu.aviationquiz.dao.jdbc.JdbcRegistrationDao;
 import cn.edu.aviationquiz.dao.jdbc.JdbcResultDao;
 import cn.edu.aviationquiz.entity.Models.*;
 import cn.edu.aviationquiz.service.QuizService;
 import cn.edu.aviationquiz.service.RoundFactory;
 import cn.edu.aviationquiz.service.impl.CompetitionExecutionServiceImpl;
+import cn.edu.aviationquiz.service.impl.QuestionBankServiceImpl;
 import cn.edu.aviationquiz.service.impl.AccountManagementServiceImpl;
 import cn.edu.aviationquiz.service.impl.CompetitionManagementServiceImpl;
 import cn.edu.aviationquiz.service.impl.RegistrationManagementServiceImpl;
@@ -157,12 +159,13 @@ class QuizWindowsTest {
                 new QuizService(
                         store,
                         clock,
-                        roundFactory,
                         new AccountManagementServiceImpl(new JdbcAccountDao(store)),
                         new CompetitionManagementServiceImpl(
                                 new JdbcCompetitionDao(store), clock),
                         new CompetitionExecutionServiceImpl(
                                 new JdbcGameDao(store), clock, roundFactory),
+                        new QuestionBankServiceImpl(
+                                new JdbcQuestionBankDao(store), roundFactory),
                         new RegistrationManagementServiceImpl(
                                 new JdbcRegistrationDao(store), clock),
                         new ResultServiceImpl(new JdbcResultDao(store)));

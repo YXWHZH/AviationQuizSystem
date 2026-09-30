@@ -26,26 +26,26 @@ public final class QuizService
     private final AccountManagementService accountService;
     private final CompetitionManagementService competitionManagementService;
     private final CompetitionExecutionService executionService;
+    private final QuestionBankService questionBankService;
     private final RegistrationManagementService registrationService;
     private final ResultService resultService;
-    private final RoundFactory roundFactory;
     private final Map<String, Session> sessions = new HashMap<>();
 
     public QuizService(
             Store store,
             Clock clock,
-            RoundFactory roundFactory,
             AccountManagementService accountService,
             CompetitionManagementService competitionManagementService,
             CompetitionExecutionService executionService,
+            QuestionBankService questionBankService,
             RegistrationManagementService registrationService,
             ResultService resultService) {
         this.store = store;
         this.clock = clock;
-        this.roundFactory = roundFactory;
         this.accountService = accountService;
         this.competitionManagementService = competitionManagementService;
         this.executionService = executionService;
+        this.questionBankService = questionBankService;
         this.registrationService = registrationService;
         this.resultService = resultService;
         recover();
@@ -286,37 +286,13 @@ WHERE r.id IS NOT NULL OR v.id IS NOT NULL ORDER BY c.competition_time DESC
     public synchronized void updateRound(
             Session s, String rid, String name, String type, int sequence, int seconds) {
         auth(s, true);
-        store.transaction(
-                db -> {
-                    Row r = db.one("SELECT * FROM competition_round WHERE id=?", rid);
-                    editable(db, r.text("competition_id"));
-                    roundFactory.create(type);
-                    require(sequence > 0 && seconds > 0, "顺序和时限必须大于 0");
-                    db.execute(
-                            "UPDATE competition_round SET"
-                                    + " name=?,round_type=?,sequence_no=?,time_limit=? WHERE id=?",
-                            bounded(name, 1, 50, "轮次名称"),
-                            type,
-                            sequence,
-                            seconds,
-                            rid);
-                    return null;
-                });
+        questionBankService.updateRound(rid, name, type, sequence, seconds);
     }
 
     @Override
     public synchronized void deleteEmptyRound(Session s, String rid) {
         auth(s, true);
-        store.transaction(
-                db -> {
-                    Row r = db.one("SELECT * FROM competition_round WHERE id=?", rid);
-                    editable(db, r.text("competition_id"));
-                    require(
-                            !db.exists("SELECT id FROM round_question WHERE round_id=?", rid),
-                            "请先移除该轮次题单，再删除空轮次");
-                    db.execute("DELETE FROM competition_round WHERE id=?", rid);
-                    return null;
-                });
+        questionBankService.deleteEmptyRound(rid);
     }
 
     public synchronized List<Row> questions(Session s) {
@@ -332,69 +308,19 @@ WHERE r.id IS NOT NULL OR v.id IS NOT NULL ORDER BY c.competition_time DESC
     @Override
     public synchronized String saveQuestion(Session s, String existing, QuestionInput q) {
         auth(s, true);
-        return store.transaction(
-                db -> {
-                    String content = bounded(q.content(), 1, 200, "题干");
-                    require(List.of("民航史", "飞行原理", "航空法规").contains(q.category()), "请选择知识分类");
-                    require(q.options().size() == 4, "必须有四个选项");
-                    for (String option : q.options()) bounded(option, 1, 1000, "选项");
-                    require(List.of("A", "B", "C", "D").contains(q.answer()), "标准答案必须为 A/B/C/D");
-                    String qid = existing == null ? id("Q") : existing;
-                    if (existing != null) {
-                        require(
-                                !db.exists(
-                                        "SELECT id FROM round_question WHERE question_id=?", qid),
-                                "引用中的题目不可修改，请复制为新题");
-                        db.execute(
-                                "UPDATE question SET"
-                                    + " content=?,category=?,option_a=?,option_b=?,option_c=?,option_d=?,correct_answer=?,active=?"
-                                    + " WHERE id=?",
-                                content,
-                                q.category(),
-                                q.options().get(0),
-                                q.options().get(1),
-                                q.options().get(2),
-                                q.options().get(3),
-                                q.answer(),
-                                q.active() ? 1 : 0,
-                                qid);
-                    } else
-                        db.execute(
-                                "INSERT INTO question VALUES(?,?,?,?,?,?,?,?,?)",
-                                qid,
-                                content,
-                                q.category(),
-                                q.options().get(0),
-                                q.options().get(1),
-                                q.options().get(2),
-                                q.options().get(3),
-                                q.answer(),
-                                q.active() ? 1 : 0);
-                    return qid;
-                });
+        return questionBankService.saveQuestion(existing, q);
     }
 
     @Override
     public synchronized void questionState(Session s, String qid, boolean active) {
         auth(s, true);
-        store.transaction(
-                db -> {
-                    db.execute("UPDATE question SET active=? WHERE id=?", active ? 1 : 0, qid);
-                    return null;
-                });
+        questionBankService.setQuestionActive(qid, active);
     }
 
     @Override
     public synchronized void deleteQuestion(Session s, String qid) {
         auth(s, true);
-        store.transaction(
-                db -> {
-                    require(
-                            !db.exists("SELECT id FROM round_question WHERE question_id=?", qid),
-                            "引用中的题目不能删除");
-                    db.execute("DELETE FROM question WHERE id=?", qid);
-                    return null;
-                });
+        questionBankService.deleteQuestion(qid);
     }
 
     public synchronized List<Row> rounds(Session s, String cid) {
@@ -411,22 +337,7 @@ WHERE r.id IS NOT NULL OR v.id IS NOT NULL ORDER BY c.competition_time DESC
     public synchronized String addRound(
             Session s, String cid, String name, String type, int sequence, int seconds) {
         auth(s, true);
-        return store.transaction(
-                db -> {
-                    editable(db, cid);
-                    roundFactory.create(type);
-                    require(sequence > 0 && seconds > 0, "顺序和时限必须大于 0");
-                    String rid = id("RD");
-                    db.execute(
-                            "INSERT INTO competition_round VALUES(?,?,?,?,?,?)",
-                            rid,
-                            cid,
-                            bounded(name, 1, 50, "轮次名称"),
-                            type,
-                            sequence,
-                            seconds);
-                    return rid;
-                });
+        return questionBankService.addRound(cid, name, type, sequence, seconds);
     }
 
     public synchronized List<Row> roundQuestions(Session s, String rid) {
@@ -443,47 +354,13 @@ WHERE r.id IS NOT NULL OR v.id IS NOT NULL ORDER BY c.competition_time DESC
     @Override
     public synchronized void addQuestionToRound(Session s, String rid, String qid, int sequence) {
         auth(s, true);
-        store.transaction(
-                db -> {
-                    Row r = db.one("SELECT * FROM competition_round WHERE id=?", rid);
-                    editable(db, r.text("competition_id"));
-                    require(sequence > 0, "题序必须大于 0");
-                    require(
-                            db.exists("SELECT id FROM question WHERE id=? AND active=1", qid),
-                            "请选择启用的题目");
-                    require(db.exists("SELECT q.id FROM question q JOIN competition_category cc ON cc.category=q.category WHERE q.id=? AND cc.competition_id=?", qid, r.text("competition_id")), "题目分类不属于该竞赛");
-                    require(
-                            !db.exists(
-                                    "SELECT rq.id FROM round_question rq JOIN competition_round r"
-                                            + " ON r.id=rq.round_id WHERE r.competition_id=? AND"
-                                            + " rq.question_id=?",
-                                    r.text("competition_id"),
-                                    qid),
-                            "同场竞赛不能重复用题");
-                    db.execute(
-                            "INSERT INTO round_question VALUES(?,?,?,?)",
-                            id("RQ"),
-                            rid,
-                            qid,
-                            sequence);
-                    return null;
-                });
+        questionBankService.addQuestionToRound(rid, qid, sequence);
     }
 
     @Override
     public synchronized void removeRoundQuestion(Session s, String rqid) {
         auth(s, true);
-        store.transaction(
-                db -> {
-                    Row r =
-                            db.one(
-                                    "SELECT r.competition_id FROM round_question rq JOIN"
-                                        + " competition_round r ON r.id=rq.round_id WHERE rq.id=?",
-                                    rqid);
-                    editable(db, r.text("competition_id"));
-                    db.execute("DELETE FROM round_question WHERE id=?", rqid);
-                    return null;
-                });
+        questionBankService.removeRoundQuestion(rqid);
     }
 
     public synchronized void startCompetition(Session s, String cid) {
