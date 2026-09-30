@@ -14,7 +14,7 @@ class AppContextTest {
     @Test
     void assemblesApplicationDependenciesAroundAProvidedDatabase() {
         try (AppContext context = AppContext.create(temp.resolve("application.db"), Clock.systemUTC())) {
-            assertTrue(context.runtime().service.needsSetup());
+            assertTrue(context.runtime().dependencies().accounts().needsStaffSetup());
         }
     }
 }

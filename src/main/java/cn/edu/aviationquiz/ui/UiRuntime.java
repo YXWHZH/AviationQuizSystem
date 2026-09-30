@@ -1,7 +1,5 @@
 package cn.edu.aviationquiz.ui;
 
-import cn.edu.aviationquiz.service.QuizService;
-
 import javafx.application.Platform;
 
 import java.util.*;
@@ -10,7 +8,7 @@ import java.util.function.*;
 
 /** All service calls run on one worker; listeners and results run on the FX thread. */
 public final class UiRuntime implements AutoCloseable {
-    public final QuizService service;
+    private final UiDependencies dependencies;
     private final ScheduledExecutorService worker =
             Executors.newSingleThreadScheduledExecutor(
                     r -> {
@@ -21,12 +19,13 @@ public final class UiRuntime implements AutoCloseable {
     private final List<Runnable> listeners = new ArrayList<>();
     private Consumer<Throwable> backgroundError = Throwable::printStackTrace;
 
-    public UiRuntime(QuizService service) {
-        this.service = service;
+    public UiRuntime(UiDependencies dependencies) {
+        this.dependencies = dependencies;
         worker.scheduleWithFixedDelay(
                 () -> {
                     try {
-                        if (service.recover()) Platform.runLater(this::changed);
+                        if (dependencies.recovery().recover())
+                            Platform.runLater(this::changed);
                     } catch (Exception e) {
                         Platform.runLater(() -> backgroundError.accept(e));
                     }
@@ -34,6 +33,10 @@ public final class UiRuntime implements AutoCloseable {
                 1,
                 1,
                 TimeUnit.SECONDS);
+    }
+
+    public UiDependencies dependencies() {
+        return dependencies;
     }
 
     public void onBackgroundError(Consumer<Throwable> handler) {

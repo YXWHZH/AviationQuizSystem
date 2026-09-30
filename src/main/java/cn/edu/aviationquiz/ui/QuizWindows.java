@@ -7,9 +7,7 @@ import cn.edu.aviationquiz.controller.CompetitionRoomController;
 import cn.edu.aviationquiz.controller.QuestionBankController;
 import cn.edu.aviationquiz.controller.RegistrationController;
 import cn.edu.aviationquiz.controller.ResultController;
-import cn.edu.aviationquiz.dao.Store.Row;
 import cn.edu.aviationquiz.entity.Models.*;
-import cn.edu.aviationquiz.service.QuizService;
 
 import javafx.animation.*;
 import javafx.application.Platform;
@@ -36,7 +34,6 @@ import java.util.function.*;
 /** JavaFX screens. Business validation and SQL belong to the service/DAO layers. */
 public final class QuizWindows {
     private final UiRuntime runtime;
-    private final QuizService service;
     private final AccountController accountController;
     private final CompetitionLiveController competitionLiveController;
     private final CompetitionManagementController competitionManagementController;
@@ -52,14 +49,14 @@ public final class QuizWindows {
 
     public QuizWindows(UiRuntime runtime) {
         this.runtime = runtime;
-        service = runtime.service;
-        accountController = new AccountController(service);
-        competitionLiveController = new CompetitionLiveController(service);
-        competitionManagementController = new CompetitionManagementController(service);
-        competitionRoomController = new CompetitionRoomController(service);
-        questionBankController = new QuestionBankController(service);
-        registrationController = new RegistrationController(service);
-        resultController = new ResultController(service);
+        UiDependencies dependencies = runtime.dependencies();
+        accountController = dependencies.accounts();
+        competitionLiveController = dependencies.liveCompetition();
+        competitionManagementController = dependencies.competitions();
+        competitionRoomController = dependencies.competitionRoom();
+        questionBankController = dependencies.questionBank();
+        registrationController = dependencies.registrations();
+        resultController = dependencies.results();
     }
 
     private String date(long value) {
@@ -197,37 +194,6 @@ public final class QuizWindows {
                     status.setText("操作已完成");
                 },
                 e -> error(status, e));
-    }
-
-    private TableView<Row> table(String... columns) {
-        TableView<Row> table = new TableView<>();
-        table.setPlaceholder(label("暂无记录"));
-        for (int i = 0; i < columns.length; i += 2) {
-            String heading = columns[i], key = columns[i + 1];
-            TableColumn<Row, String> col = new TableColumn<>(heading);
-            col.setCellValueFactory(
-                    v ->
-                            new ReadOnlyStringWrapper(
-                                    key.endsWith("_time") || key.equals("created_at")
-                                            ? date(v.getValue().number(key))
-                                            : v.getValue().text(key)));
-            col.setPrefWidth(key.equals("content") ? 380 : 160);
-            table.getColumns().add(col);
-        }
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
-        VBox.setVgrow(table, Priority.ALWAYS);
-        return table;
-    }
-
-    private void rows(TableView<Row> table, List<Row> values) {
-        Row selected = table.getSelectionModel().getSelectedItem();
-        String id = selected == null ? "" : selected.text("id");
-        if (table.getItems().equals(values)) return;
-        table.getItems().setAll(values);
-        values.stream()
-                .filter(r -> r.text("id").equals(id))
-                .findFirst()
-                .ifPresent(r -> table.getSelectionModel().select(r));
     }
 
     private static <T> TableColumn<T, String> column(

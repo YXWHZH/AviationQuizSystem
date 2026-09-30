@@ -13,6 +13,7 @@ public final class QuizService
         implements AccountUseCases,
                 CompetitionManagementUseCases,
                 CompetitionLiveUseCases,
+                CompetitionRecovery,
                 CompetitionRoomService,
                 QuestionBankUseCases,
                 RegistrationUseCases,

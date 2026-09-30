@@ -10,6 +10,13 @@ import cn.edu.aviationquiz.dao.jdbc.JdbcGameDao;
 import cn.edu.aviationquiz.dao.jdbc.JdbcQuestionBankDao;
 import cn.edu.aviationquiz.dao.jdbc.JdbcRegistrationDao;
 import cn.edu.aviationquiz.dao.jdbc.JdbcResultDao;
+import cn.edu.aviationquiz.controller.AccountController;
+import cn.edu.aviationquiz.controller.CompetitionLiveController;
+import cn.edu.aviationquiz.controller.CompetitionManagementController;
+import cn.edu.aviationquiz.controller.CompetitionRoomController;
+import cn.edu.aviationquiz.controller.QuestionBankController;
+import cn.edu.aviationquiz.controller.RegistrationController;
+import cn.edu.aviationquiz.controller.ResultController;
 import cn.edu.aviationquiz.entity.Models.*;
 import cn.edu.aviationquiz.service.QuizService;
 import cn.edu.aviationquiz.service.RoundFactory;
@@ -210,7 +217,17 @@ class QuizWindowsTest {
                                 "A",
                                 true));
         service.addQuestionToRound(staff, rid, qid, 1);
-        UiRuntime runtime = new UiRuntime(service);
+        UiRuntime runtime =
+                new UiRuntime(
+                        new UiDependencies(
+                                new AccountController(service),
+                                new CompetitionLiveController(service),
+                                new CompetitionManagementController(service),
+                                new CompetitionRoomController(service),
+                                new QuestionBankController(service),
+                                new RegistrationController(service),
+                                new ResultController(service),
+                                service));
         Stage entry =
                 fx(
                         () -> {

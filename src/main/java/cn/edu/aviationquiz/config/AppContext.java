@@ -8,6 +8,13 @@ import cn.edu.aviationquiz.dao.jdbc.JdbcGameDao;
 import cn.edu.aviationquiz.dao.jdbc.JdbcQuestionBankDao;
 import cn.edu.aviationquiz.dao.jdbc.JdbcRegistrationDao;
 import cn.edu.aviationquiz.dao.jdbc.JdbcResultDao;
+import cn.edu.aviationquiz.controller.AccountController;
+import cn.edu.aviationquiz.controller.CompetitionLiveController;
+import cn.edu.aviationquiz.controller.CompetitionManagementController;
+import cn.edu.aviationquiz.controller.CompetitionRoomController;
+import cn.edu.aviationquiz.controller.QuestionBankController;
+import cn.edu.aviationquiz.controller.RegistrationController;
+import cn.edu.aviationquiz.controller.ResultController;
 import cn.edu.aviationquiz.service.QuizService;
 import cn.edu.aviationquiz.service.RoundFactory;
 import cn.edu.aviationquiz.service.impl.AccountManagementServiceImpl;
@@ -19,6 +26,7 @@ import cn.edu.aviationquiz.service.impl.RegistrationManagementServiceImpl;
 import cn.edu.aviationquiz.service.impl.ResultServiceImpl;
 import cn.edu.aviationquiz.service.impl.StandardRoundFactory;
 import cn.edu.aviationquiz.ui.UiRuntime;
+import cn.edu.aviationquiz.ui.UiDependencies;
 
 import java.nio.file.Path;
 import java.time.Clock;
@@ -52,7 +60,17 @@ public final class AppContext implements AutoCloseable {
                         new RegistrationManagementServiceImpl(
                                 new JdbcRegistrationDao(store), clock),
                         new ResultServiceImpl(new JdbcResultDao(store)));
-        return new AppContext(new UiRuntime(service));
+        UiDependencies ui =
+                new UiDependencies(
+                        new AccountController(service),
+                        new CompetitionLiveController(service),
+                        new CompetitionManagementController(service),
+                        new CompetitionRoomController(service),
+                        new QuestionBankController(service),
+                        new RegistrationController(service),
+                        new ResultController(service),
+                        service);
+        return new AppContext(new UiRuntime(ui));
     }
 
     public UiRuntime runtime() {
