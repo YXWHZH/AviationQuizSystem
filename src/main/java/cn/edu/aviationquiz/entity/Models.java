@@ -58,6 +58,20 @@ public final class Models {
 
     public record RoundQuestionView(String id, int sequence, String content) {}
 
+    public record CompetitionProgressView(
+            String groupRoundId,
+            String groupId,
+            String roundId,
+            String groupName,
+            String roundName,
+            int timeLimitSeconds,
+            String roundType,
+            String status) {}
+
+    public record ActiveReleaseView(String releaseId, String content, long deadline) {}
+
+    public record PlayerSubmissionView(String name, String status) {}
+
     public record RankingEntry(
             String playerId,
             String name,

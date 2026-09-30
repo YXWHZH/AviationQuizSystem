@@ -1,6 +1,7 @@
 package cn.edu.aviationquiz.ui;
 
 import cn.edu.aviationquiz.controller.AccountController;
+import cn.edu.aviationquiz.controller.CompetitionLiveController;
 import cn.edu.aviationquiz.controller.CompetitionManagementController;
 import cn.edu.aviationquiz.controller.CompetitionRoomController;
 import cn.edu.aviationquiz.controller.QuestionBankController;
@@ -37,6 +38,7 @@ public final class QuizWindows {
     private final UiRuntime runtime;
     private final QuizService service;
     private final AccountController accountController;
+    private final CompetitionLiveController competitionLiveController;
     private final CompetitionManagementController competitionManagementController;
     private final CompetitionRoomController competitionRoomController;
     private final QuestionBankController questionBankController;
@@ -52,6 +54,7 @@ public final class QuizWindows {
         this.runtime = runtime;
         service = runtime.service;
         accountController = new AccountController(service);
+        competitionLiveController = new CompetitionLiveController(service);
         competitionManagementController = new CompetitionManagementController(service);
         competitionRoomController = new CompetitionRoomController(service);
         questionBankController = new QuestionBankController(service);
@@ -1764,7 +1767,16 @@ public final class QuizWindows {
             pendingCount.getStyleClass().add("live-pending");
             VBox liveBoard = new VBox(8, label("LIVE  现场态势"), progress, question, new HBox(26, timer, pendingCount));
             liveBoard.getStyleClass().add("live-board");
-            TableView<Row> monitor = table("选手", "name", "提交情况", "answer_status");
+            TableView<PlayerSubmissionView> monitor = new TableView<>();
+            monitor.setPlaceholder(label("暂无记录"));
+            TableColumn<PlayerSubmissionView, String> playerName = new TableColumn<>("选手");
+            playerName.setCellValueFactory(
+                    value -> new ReadOnlyStringWrapper(value.getValue().name()));
+            TableColumn<PlayerSubmissionView, String> submissionStatus =
+                    new TableColumn<>("提交情况");
+            submissionStatus.setCellValueFactory(
+                    value -> new ReadOnlyStringWrapper(value.getValue().status()));
+            monitor.getColumns().addAll(playerName, submissionStatus);
             TableView<RankingEntry> ranks = rankingTable();
             Button
                     start =
@@ -1774,27 +1786,46 @@ public final class QuizWindows {
                                         if (confirm(stage, "开始比赛后，分组、题单、轮次与晋级名额将锁定。确认开始？"))
                                             action(
                                                     status,
-                                                    () -> service.startCompetition(session, cid));
+                                                    () ->
+                                                            competitionLiveController.startCompetition(
+                                                                    session, cid));
                                     }),
                     begin =
                             button(
                                     "开始当前轮次",
-                                    () -> action(status, () -> service.startRound(session, cid))),
+                                    () ->
+                                            action(
+                                                    status,
+                                                    () ->
+                                                            competitionLiveController.startRound(
+                                                                    session, cid))),
                     publish =
                             button(
                                     "发布下一题",
-                                    () -> action(status, () -> service.publish(session, cid))),
+                                    () ->
+                                            action(
+                                                    status,
+                                                    () ->
+                                                            competitionLiveController.publish(
+                                                                    session, cid))),
                     close =
                             button(
                                     "全员提交，结束本题",
                                     () ->
                                             action(
                                                     status,
-                                                    () -> service.closeQuestion(session, cid))),
+                                                    () ->
+                                                            competitionLiveController.closeQuestion(
+                                                                    session, cid))),
                     finish =
                             button(
                                     "结束当前轮次",
-                                    () -> action(status, () -> service.finishRound(session, cid))),
+                                    () ->
+                                            action(
+                                                    status,
+                                                    () ->
+                                                            competitionLiveController.finishRound(
+                                                                    session, cid))),
                     archive = button("结束比赛并归档", () -> {}),
                     preview =
                             button(
@@ -1836,9 +1867,9 @@ public final class QuizWindows {
             roomTimers.add(tick);
             record ControlSnapshot(
                     Row competition,
-                    Row current,
-                    Row release,
-                    List<Row> monitor,
+                    CompetitionProgressView current,
+                    ActiveReleaseView release,
+                    List<PlayerSubmissionView> monitor,
                     List<RankingEntry> ranks,
                     List<RoundQuestionView> questions,
                     int completed) {}
@@ -1851,20 +1882,22 @@ public final class QuizWindows {
                                                         .filter(v -> v.text("id").equals(cid))
                                                         .findFirst()
                                                         .orElseThrow();
-                                        Row gr = service.progress(session, cid);
+                                        CompetitionProgressView gr =
+                                                competitionLiveController.progress(session, cid);
                                         List<RoundQuestionView> qs =
                                                 gr == null
                                                         ? List.of()
                                                         : questionBankController.roundQuestions(
-                                                                session, gr.text("round_id"));
+                                                                session, gr.roundId());
                                         return new ControlSnapshot(
                                                 c,
                                                 gr,
-                                                service.activeRelease(session, cid),
-                                                service.monitor(session, cid),
+                                                competitionLiveController.activeRelease(session, cid),
+                                                competitionLiveController.monitor(session, cid),
                                                 resultController.ranking(session, cid),
                                                 qs,
-                                                service.completedQuestions(session, cid));
+                                                competitionLiveController.completedQuestions(
+                                                        session, cid));
                                     },
                                     v -> {
                                         boolean
@@ -1876,19 +1909,16 @@ public final class QuizWindows {
                                                         v.competition()
                                                                 .text("status")
                                                                 .equals("已结束");
-                                        Row gr = v.current(), qr = v.release();
+                                        CompetitionProgressView gr = v.current();
+                                        ActiveReleaseView qr = v.release();
                                         boolean
                                                 inRound =
                                                         gr != null
-                                                                && gr.text("status").equals("进行中"),
+                                                                && gr.status().equals("进行中"),
                                                 pending =
                                                         v.monitor().stream()
                                                                 .anyMatch(
-                                                                        p ->
-                                                                        p.text(
-                                                                                                "answer_status")
-                                                                                        .equals(
-                                                                                        "待提交"));
+                                                                        p -> p.status().equals("待提交"));
                                         liveBoard.setVisible(!ended);
                                         liveBoard.setManaged(!ended);
                                         progress.setText(
@@ -1896,20 +1926,23 @@ public final class QuizWindows {
                                                         + (gr == null
                                                                 ? " · 所有分组轮次已完成或尚未开赛"
                                                                 : " · "
-                                                                        + gr.text("group_name")
+                                                                        + gr.groupName()
                                                                         + " · "
-                                                                        + gr.text("round_name")
+                                                                        + gr.roundName()
                                                                         + " · "
-                                                                        + gr.text("status")
+                                                                        + gr.status()
                                                                         + " · 已完成 "
                                                                         + v.completed()
                                                                         + " / "
                                                                         + v.questions().size()
                                                                         + " 题"));
-                                        deadline[0] = qr == null ? 0 : qr.number("deadline");
+                                        deadline[0] = qr == null ? 0 : qr.deadline();
                                         question.setText(
-                                                qr == null ? "当前无正在作答的题目" : qr.text("content"));
-                                        long waiting = v.monitor().stream().filter(p -> p.text("answer_status").equals("待提交")).count();
+                                                qr == null ? "当前无正在作答的题目" : qr.content());
+                                        long waiting =
+                                                v.monitor().stream()
+                                                        .filter(p -> p.status().equals("待提交"))
+                                                        .count();
                                         pendingCount.setText(qr == null ? "暂无待提交题目" : "待提交  " + waiting + " 人");
                                         timer.setText(
                                                 deadline[0] == 0
@@ -1927,7 +1960,7 @@ public final class QuizWindows {
                                         begin.setDisable(
                                                 !running
                                                         || gr == null
-                                                        || !gr.text("status").equals("待开始"));
+                                                        || !gr.status().equals("待开始"));
                                         publish.setDisable(
                                                 !running
                                                         || !inRound
@@ -1949,7 +1982,7 @@ public final class QuizWindows {
                                                                 : gr == null && running
                                                                         ? "所有小组完成，请预览晋级并归档。"
                                                                         : "按小组、轮次与题序操作；不可用的操作需先完成前一步。");
-                                        rows(monitor, v.monitor());
+                                        monitor.setItems(FXCollections.observableArrayList(v.monitor()));
                                         rankRows(ranks, v.ranks());
                                     },
                                     status);
@@ -2096,7 +2129,7 @@ public final class QuizWindows {
                             read(
                                     () ->
                                             new RoomSnapshot(
-                                                    service.room(session, cid),
+                                                    competitionLiveController.room(session, cid),
                                                     resultController.ranking(session, cid),
                                                     service.competitions().stream()
                                                             .filter(c -> c.text("id").equals(cid))

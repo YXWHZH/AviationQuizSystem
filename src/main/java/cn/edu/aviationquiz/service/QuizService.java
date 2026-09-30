@@ -15,6 +15,7 @@ import java.util.*;
 public final class QuizService
         implements AccountUseCases,
                 CompetitionManagementUseCases,
+                CompetitionLiveUseCases,
                 CompetitionRoomService,
                 QuestionBankUseCases,
                 RegistrationUseCases,
@@ -356,6 +357,7 @@ WHERE r.id IS NOT NULL OR v.id IS NOT NULL ORDER BY c.competition_time DESC
         questionBankService.removeRoundQuestion(rqid);
     }
 
+    @Override
     public synchronized void startCompetition(Session s, String cid) {
         auth(s, true);
         store.transaction(
@@ -416,11 +418,27 @@ WHERE r.id IS NOT NULL OR v.id IS NOT NULL ORDER BY c.competition_time DESC
         return rows.isEmpty() ? null : rows.getFirst();
     }
 
-    public synchronized Row progress(Session s, String cid) {
+    @Override
+    public synchronized CompetitionProgressView progress(Session s, String cid) {
         auth(s, true);
-        return store.transaction(db -> current(db, cid));
+        return store.transaction(
+                db -> {
+                    Row row = current(db, cid);
+                    return row == null
+                            ? null
+                            : new CompetitionProgressView(
+                                    row.text("id"),
+                                    row.text("group_id"),
+                                    row.text("round_id"),
+                                    row.text("group_name"),
+                                    row.text("round_name"),
+                                    (int) row.number("time_limit"),
+                                    row.text("round_type"),
+                                    row.text("status"));
+                });
     }
 
+    @Override
     public synchronized int completedQuestions(Session s, String cid) {
         auth(s, true);
         return store.transaction(
@@ -442,6 +460,7 @@ WHERE r.id IS NOT NULL OR v.id IS NOT NULL ORDER BY c.competition_time DESC
         require(competition(db, cid).text("status").equals("比赛中"), "竞赛不在比赛中");
     }
 
+    @Override
     public synchronized void startRound(Session s, String cid) {
         auth(s, true);
         store.transaction(
@@ -454,6 +473,7 @@ WHERE r.id IS NOT NULL OR v.id IS NOT NULL ORDER BY c.competition_time DESC
                 });
     }
 
+    @Override
     public synchronized String publish(Session s, String cid) {
         auth(s, true);
         recover();
@@ -537,7 +557,8 @@ WHERE r.id IS NOT NULL OR v.id IS NOT NULL ORDER BY c.competition_time DESC
                 });
     }
 
-    public synchronized Row activeRelease(Session s, String cid) {
+    @Override
+    public synchronized ActiveReleaseView activeRelease(Session s, String cid) {
         auth(s, true);
         return store.transaction(
                 db -> {
@@ -546,10 +567,14 @@ WHERE r.id IS NOT NULL OR v.id IS NOT NULL ORDER BY c.competition_time DESC
                                     RELEASE_SQL
                                             + "WHERE r.competition_id=? AND qr.closed_at IS NULL",
                                     cid);
-                    return rows.isEmpty() ? null : rows.getFirst();
+                    if (rows.isEmpty()) return null;
+                    Row row = rows.getFirst();
+                    return new ActiveReleaseView(
+                            row.text("id"), row.text("content"), row.number("deadline"));
                 });
     }
 
+    @Override
     public synchronized void closeQuestion(Session s, String cid) {
         auth(s, true);
         recover();
@@ -576,6 +601,7 @@ WHERE r.id IS NOT NULL OR v.id IS NOT NULL ORDER BY c.competition_time DESC
                 });
     }
 
+    @Override
     public synchronized void finishRound(Session s, String cid) {
         auth(s, true);
         recover();
@@ -598,6 +624,7 @@ WHERE r.id IS NOT NULL OR v.id IS NOT NULL ORDER BY c.competition_time DESC
                 });
     }
 
+    @Override
     public synchronized PublishedQuestionView room(Session s, String cid) {
         auth(s, false);
         recover();
@@ -642,26 +669,34 @@ WHERE r.id IS NOT NULL OR v.id IS NOT NULL ORDER BY c.competition_time DESC
                 });
     }
 
-    public synchronized List<Row> monitor(Session s, String cid) {
+    @Override
+    public synchronized List<PlayerSubmissionView> monitor(Session s, String cid) {
         auth(s, true);
         return store.transaction(
                 db -> {
                     Row gr = current(db, cid);
                     if (gr == null) return List.of();
                     return db.list(
-                            "SELECT p.name,CASE WHEN a.id IS NOT NULL THEN '已提交' WHEN t.id IS NOT"
-                                + " NULL THEN '超时' ELSE '待提交' END answer_status FROM"
-                                + " group_assignment ga JOIN registration reg ON"
-                                + " reg.id=ga.registration_id JOIN player p ON p.id=reg.player_id"
-                                + " LEFT JOIN answer_record a ON a.player_id=p.id AND"
-                                + " a.release_id=(SELECT id FROM question_release WHERE"
-                                + " group_round_id=? ORDER BY rowid DESC LIMIT 1) LEFT JOIN"
-                                + " timeout_record t ON t.player_id=p.id AND t.release_id=(SELECT"
-                                + " id FROM question_release WHERE group_round_id=? ORDER BY rowid"
-                                + " DESC LIMIT 1) WHERE ga.group_id=?",
-                            gr.text("id"),
-                            gr.text("id"),
-                            gr.text("group_id"));
+                                    "SELECT p.name,CASE WHEN a.id IS NOT NULL THEN '已提交' WHEN t.id IS NOT"
+                                        + " NULL THEN '超时' ELSE '待提交' END answer_status FROM"
+                                        + " group_assignment ga JOIN registration reg ON"
+                                        + " reg.id=ga.registration_id JOIN player p ON p.id=reg.player_id"
+                                        + " LEFT JOIN answer_record a ON a.player_id=p.id AND"
+                                        + " a.release_id=(SELECT id FROM question_release WHERE"
+                                        + " group_round_id=? ORDER BY rowid DESC LIMIT 1) LEFT JOIN"
+                                        + " timeout_record t ON t.player_id=p.id AND t.release_id=(SELECT"
+                                        + " id FROM question_release WHERE group_round_id=? ORDER BY rowid"
+                                        + " DESC LIMIT 1) WHERE ga.group_id=?",
+                                    gr.text("id"),
+                                    gr.text("id"),
+                                    gr.text("group_id"))
+                            .stream()
+                            .map(
+                                    row ->
+                                            new PlayerSubmissionView(
+                                                    row.text("name"),
+                                                    row.text("answer_status")))
+                            .toList();
                 });
     }
 
