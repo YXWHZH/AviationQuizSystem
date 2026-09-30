@@ -16,6 +16,7 @@ public final class QuizService
         implements AccountUseCases,
                 CompetitionManagementUseCases,
                 CompetitionRoomService,
+                QuestionBankUseCases,
                 RegistrationUseCases,
                 ResultUseCases {
     private static final String COMPETITION_SELECT =
@@ -281,6 +282,7 @@ WHERE r.id IS NOT NULL OR v.id IS NOT NULL ORDER BY c.competition_time DESC
                 });
     }
 
+    @Override
     public synchronized void updateRound(
             Session s, String rid, String name, String type, int sequence, int seconds) {
         auth(s, true);
@@ -302,6 +304,7 @@ WHERE r.id IS NOT NULL OR v.id IS NOT NULL ORDER BY c.competition_time DESC
                 });
     }
 
+    @Override
     public synchronized void deleteEmptyRound(Session s, String rid) {
         auth(s, true);
         store.transaction(
@@ -326,6 +329,7 @@ WHERE r.id IS NOT NULL OR v.id IS NOT NULL ORDER BY c.competition_time DESC
         return store.transaction(db -> db.list("SELECT q.* FROM question q WHERE EXISTS(SELECT 1 FROM competition_category cc WHERE cc.competition_id=? AND cc.category=q.category) ORDER BY q.category,q.id", cid));
     }
 
+    @Override
     public synchronized String saveQuestion(Session s, String existing, QuestionInput q) {
         auth(s, true);
         return store.transaction(
@@ -370,6 +374,7 @@ WHERE r.id IS NOT NULL OR v.id IS NOT NULL ORDER BY c.competition_time DESC
                 });
     }
 
+    @Override
     public synchronized void questionState(Session s, String qid, boolean active) {
         auth(s, true);
         store.transaction(
@@ -379,6 +384,7 @@ WHERE r.id IS NOT NULL OR v.id IS NOT NULL ORDER BY c.competition_time DESC
                 });
     }
 
+    @Override
     public synchronized void deleteQuestion(Session s, String qid) {
         auth(s, true);
         store.transaction(
@@ -401,6 +407,7 @@ WHERE r.id IS NOT NULL OR v.id IS NOT NULL ORDER BY c.competition_time DESC
                                 cid));
     }
 
+    @Override
     public synchronized String addRound(
             Session s, String cid, String name, String type, int sequence, int seconds) {
         auth(s, true);
@@ -433,6 +440,7 @@ WHERE r.id IS NOT NULL OR v.id IS NOT NULL ORDER BY c.competition_time DESC
                                 rid));
     }
 
+    @Override
     public synchronized void addQuestionToRound(Session s, String rid, String qid, int sequence) {
         auth(s, true);
         store.transaction(
@@ -462,6 +470,7 @@ WHERE r.id IS NOT NULL OR v.id IS NOT NULL ORDER BY c.competition_time DESC
                 });
     }
 
+    @Override
     public synchronized void removeRoundQuestion(Session s, String rqid) {
         auth(s, true);
         store.transaction(

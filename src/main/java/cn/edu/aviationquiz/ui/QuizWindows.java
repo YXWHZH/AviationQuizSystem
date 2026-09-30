@@ -3,6 +3,7 @@ package cn.edu.aviationquiz.ui;
 import cn.edu.aviationquiz.controller.AccountController;
 import cn.edu.aviationquiz.controller.CompetitionManagementController;
 import cn.edu.aviationquiz.controller.CompetitionRoomController;
+import cn.edu.aviationquiz.controller.QuestionBankController;
 import cn.edu.aviationquiz.controller.RegistrationController;
 import cn.edu.aviationquiz.controller.ResultController;
 import cn.edu.aviationquiz.dao.Store.Row;
@@ -38,6 +39,7 @@ public final class QuizWindows {
     private final AccountController accountController;
     private final CompetitionManagementController competitionManagementController;
     private final CompetitionRoomController competitionRoomController;
+    private final QuestionBankController questionBankController;
     private final RegistrationController registrationController;
     private final ResultController resultController;
     private final DateTimeFormatter dateFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -52,6 +54,7 @@ public final class QuizWindows {
         accountController = new AccountController(service);
         competitionManagementController = new CompetitionManagementController(service);
         competitionRoomController = new CompetitionRoomController(service);
+        questionBankController = new QuestionBankController(service);
         registrationController = new RegistrationController(service);
         resultController = new ResultController(service);
     }
@@ -1168,7 +1171,7 @@ public final class QuizWindows {
                                                         action(
                                                                 status,
                                                                 () ->
-                                                                        service.questionState(
+                                                                        questionBankController.setQuestionActive(
                                                                                 session,
                                                                                 q.text("id"),
                                                                                 q.number("active")
@@ -1185,7 +1188,7 @@ public final class QuizWindows {
                                                             action(
                                                                     status,
                                                                     () ->
-                                                                            service.deleteQuestion(
+                                                                            questionBankController.deleteQuestion(
                                                                                     session,
                                                                                     q.text("id")));
                                                     }))),
@@ -1224,7 +1227,7 @@ public final class QuizWindows {
                                         q == null || copy || q.number("active") == 1);
                         return (Callable<String>)
                                 () ->
-                                        service.saveQuestion(
+                                        questionBankController.saveQuestion(
                                                 session,
                                                 q == null || copy ? null : q.text("id"),
                                                 input);
@@ -1581,7 +1584,7 @@ public final class QuizWindows {
                                                     limit = Integer.parseInt(seconds.getText());
                                             return (Callable<String>)
                                                     () ->
-                                                            service.addRound(
+                                                            questionBankController.addRound(
                                                                     session, cid, n, t, order,
                                                                     limit);
                                         },
@@ -1624,7 +1627,7 @@ public final class QuizWindows {
                                                                     Integer.parseInt(seq.getText());
                                                             return (Callable<Void>)
                                                                     () -> {
-                                                                        service.addQuestionToRound(
+                                                                        questionBankController.addQuestionToRound(
                                                                                 session, rid, qid,
                                                                                 order);
                                                                         return null;
@@ -1647,7 +1650,7 @@ public final class QuizWindows {
                                                             action(
                                                                     status,
                                                                     () ->
-                                                                            service
+                                                                            questionBankController
                                                                                     .deleteEmptyRound(
                                                                                             session,
                                                                                             rid));
@@ -1663,7 +1666,7 @@ public final class QuizWindows {
                                                         action(
                                                                 status,
                                                                 () ->
-                                                                        service.removeRoundQuestion(
+                                                                        questionBankController.removeRoundQuestion(
                                                                                 session, rq));
                                                     }))),
                     rounds,
@@ -1699,7 +1702,7 @@ public final class QuizWindows {
                                 limit = Integer.parseInt(seconds.getText());
                         return (Callable<Void>)
                                 () -> {
-                                    service.updateRound(
+                                    questionBankController.updateRound(
                                             session, round.text("id"), n, t, order, limit);
                                     return null;
                                 };
