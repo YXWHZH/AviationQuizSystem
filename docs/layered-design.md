@@ -20,7 +20,7 @@
 | Entity | `CompetitionRound` 及子类、各类 Context/Record | 表达业务对象和跨层不可变数据 |
 | 组装入口 | `AppContext` | 只在程序入口创建实现类并注入接口依赖 |
 
-竞赛综合列表等辅助查询仍有部分由 `QuizService` 直接访问 `Store`，属于后续拆分范围；因此不能宣称整个系统已经全部完成 DAO 分层。现场运行控制已经完成 Controller、Service、DAO 的完整拆分。
+竞赛大厅、选手参与状态和“我的竞赛”查询已通过 `CompetitionView` 完成分层；参赛人员/小组列表、历史记录和少量写操作仍由 `QuizService` 直接访问 `Store`，属于后续拆分范围。因此不能宣称整个系统已经全部完成 DAO 分层。
 
 ## 2. 核心类结构
 
@@ -190,12 +190,12 @@ classDiagram
 
 ### 3.5 新建/编辑竞赛与报名状态流转
 
-1. `QuizWindows` 将表单转换为 `CompetitionInput`，调用 `CompetitionManagementController.save`；开放或截止报名时调用 `changeRegistrationState`。
+1. `QuizWindows` 将表单转换为 `CompetitionInput`，调用 `CompetitionManagementController.save`；开放或截止报名时调用 `changeRegistrationState`。竞赛大厅和“我的竞赛”也统一通过该 Controller 查询。
 2. Controller 检查竞赛输入、竞赛编号和目标状态是否缺失，再调用 `CompetitionManagementUseCases`。
 3. `QuizService` 验证工作人员会话，随后委托 `CompetitionManagementService`。
 4. `CompetitionManagementServiceImpl` 校验名称、简介、时间顺序、晋级名额和分类；编辑时阻止删除题单仍在使用的分类。
 5. 状态流转只允许“未开放 → 报名中 → 报名截止”，并以注入的 `Clock` 检查报名开始与截止时间。
-6. `CompetitionDao` 在同一事务中保存竞赛与分类，`JdbcCompetitionDao` 封装所有相关 SQL。
+6. `CompetitionDao` 在同一事务中保存竞赛与分类，`JdbcCompetitionDao` 封装相关 SQL；列表查询向 View 返回不可变 `CompetitionView`，不再暴露数据库 `Row`。
 
 ### 3.6 题库、轮次与题单配置
 
@@ -237,4 +237,4 @@ classDiagram
 - `ResultServiceTest`：证明稳定排序、未完成轮次拦截和归档事务。
 - `QuizWindowsTest`：使用临时 SQLite 数据库验证界面主流程与小组数据隔离。
 
-当前完整命令 `mvn -Dquiz.uiTest=true clean test package` 共通过 56 项测试。
+当前完整命令 `mvn -Dquiz.uiTest=true clean test package` 共通过 57 项测试。
