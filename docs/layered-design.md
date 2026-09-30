@@ -20,7 +20,7 @@
 | Entity | `CompetitionRound` 及子类、各类 Context/Record | 表达业务对象和跨层不可变数据 |
 | 组装入口 | `AppContext` | 只在程序入口创建实现类并注入接口依赖 |
 
-竞赛大厅、选手参与状态和“我的竞赛”查询已通过 `CompetitionView` 完成分层；参赛人员/小组列表、历史记录和少量写操作仍由 `QuizService` 直接访问 `Store`，属于后续拆分范围。因此不能宣称整个系统已经全部完成 DAO 分层。
+竞赛大厅、选手参与状态和“我的竞赛”查询已通过 `CompetitionView` 完成分层；参赛人员与小组列表通过 `ParticipantView`、`GroupView` 完成分层。当前只剩历史记录查询和导出前状态校验仍由 `QuizService` 直接访问 `Store`，属于后续拆分范围。
 
 ## 2. 核心类结构
 
@@ -170,6 +170,7 @@ classDiagram
 4. `RegistrationManagementServiceImpl` 校验竞赛状态、报名时间、资料完整性、重复记录、分组归属等业务规则。
 5. `RegistrationDao` 在同一事务中恢复原记录或写入新记录；正式报名时同步取消有效预约。
 6. 成功返回后 View 刷新竞赛状态、名单或小组列表；业务异常统一显示给用户。
+7. 工作人员名单与小组查询返回 `ParticipantView`、`GroupView`；删除空小组时，`RegistrationManagementServiceImpl` 校验竞赛可编辑且小组尚未分配选手，再由 `RegistrationDao` 删除。
 
 ### 3.3 排名、晋级预览与归档
 
@@ -237,4 +238,4 @@ classDiagram
 - `ResultServiceTest`：证明稳定排序、未完成轮次拦截和归档事务。
 - `QuizWindowsTest`：使用临时 SQLite 数据库验证界面主流程与小组数据隔离。
 
-当前完整命令 `mvn -Dquiz.uiTest=true clean test package` 共通过 57 项测试。
+当前完整命令 `mvn -Dquiz.uiTest=true clean test package` 共通过 58 项测试。

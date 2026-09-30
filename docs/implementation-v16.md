@@ -9,7 +9,7 @@
 - QuizService 负责会话与角色权限，并把账号资料、竞赛配置、题库题单、现场运行、报名分组、答题计分、排名归档委托给独立领域服务。
 - 领域服务依赖 AccountDao、CompetitionDao、QuestionBankDao、CompetitionLiveDao、GameDao、RegistrationDao、ResultDao 接口；JDBC 实现负责 SQLite 映射与事务。
 - AppContext 集中完成依赖组装，View 和业务规则均不直接创建 JDBC DAO。
-- 现场运行控制已完成 CompetitionLiveController、CompetitionLiveService 和 CompetitionLiveDao 分层；竞赛大厅、选手参与状态和“我的竞赛”通过 CompetitionView 完成查询分层。参赛人员/小组列表、历史记录和少量写操作仍是后续拆分范围。
+- 现场运行控制已完成 CompetitionLiveController、CompetitionLiveService 和 CompetitionLiveDao 分层；竞赛大厅与参与状态通过 CompetitionView 分层，参赛人员和小组通过 ParticipantView、GroupView 分层。当前只剩历史记录查询和导出前状态校验仍是后续拆分范围。
 - `competition_category` 保存竞赛多分类；`round_question` 保存题单；`group_round` 保存小组轮次状态；`question_release` 保存一次发布的开始、截止和关闭时间。
 - `answer_record` 与 `timeout_record` 分别保存有效答案和超时结算，Service 事务与双向触发器共同保证二者互斥。
 
@@ -35,4 +35,17 @@
 ./tools/apache-maven-3.9.11/bin/mvn.cmd '-Dquiz.uiTest=true' test
 ```
 
-业务测试覆盖取消与恢复、唯一记录、报名时间、分组锁定、分类限制、题目引用、题目发布、提交与超时互斥、累计用时、稳定排名、晋级和归档。接口替身测试验证 Controller 委托、强类型竞赛查询、DAO 隔离和可插拔计分工厂。JavaFX 测试验证单窗口页面切换、分组题目隔离和提交反馈。当前完整测试共 57 项。类结构、执行过程和扩展性证据见 [核心功能分层设计](layered-design.md)。
+业务测试覆盖取消与恢复、唯一记录、报名时间、分组锁定、分类限制、题目引用、题目发布、提交与超时互斥、累计用时、稳定排名、晋级和归档。接口替身测试验证 Controller 委托、强类型竞赛/人员/小组查询、DAO 隔离和可插拔计分工厂。JavaFX 测试验证单窗口页面切换、分组题目隔离和提交反馈。当前完整测试共 58 项。类结构、执行过程和扩展性证据见 [核心功能分层设计](layered-design.md)。
+
+## 整改进度（2026-09-30）
+
+| 检查项 | 完成度 | 当前证据 |
+|---|---:|---|
+| 分层结构 | 90% | 七个核心闭环均有 Controller、Service 接口/实现和 DAO 接口/实现 |
+| 核心功能 | 95% | 账号、竞赛、报名分组、题库题单、现场答题、排名归档均可运行 |
+| 继承、多态与接口扩展 | 90% | 三种轮次继承 `CompetitionRound`，`RoundFactory` 可注册新规则 |
+| 界面与数据一致性 | 80% | 主要页面已使用强类型 View；仍需最终人工逐页验收 |
+| 自动化测试 | 85% | 58 项测试通过，包含 JavaFX 主流程；仍可补边界与 DAO 专项测试 |
+| 报告与答辩材料 | 55% | 已有类结构和七个执行过程，尚需套用学校 Word 模板并完成最终截图 |
+
+按以上项目加权估算，当前总体完成度约 **82%**。下一阶段优先完成历史/导出分层、最终界面巡检、课程设计报告与答辩清单。
