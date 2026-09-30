@@ -51,6 +51,25 @@ public final class Models {
             String groupName,
             String myStatus) {}
 
+    public record ParticipantView(
+            String id,
+            String name,
+            String username,
+            String school,
+            String college,
+            String major,
+            String studentNumber,
+            String phone,
+            long createdAt,
+            String groupName) {}
+
+    public record GroupView(String id, String competitionId, String name, int sequence) {
+        @Override
+        public String toString() {
+            return name;
+        }
+    }
+
     public record QuestionInput(
             String content, String category, List<String> options, String answer, boolean active) {}
 

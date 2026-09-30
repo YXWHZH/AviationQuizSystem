@@ -198,7 +198,7 @@ class QuizWindowsTest {
         String ga = service.addGroup(staff, cid, "A组", 1),
                 gb = service.addGroup(staff, cid, "B组", 2);
         for (var r : service.people(staff, cid, false))
-            service.assign(staff, r.text("id"), r.text("username").equals("userA") ? ga : gb);
+            service.assign(staff, r.id(), r.username().equals("userA") ? ga : gb);
         String rid = service.addRound(staff, cid, "必答轮", "REQUIRED", 1, 120);
         String qid =
                 service.saveQuestion(

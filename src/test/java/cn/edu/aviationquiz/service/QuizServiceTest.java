@@ -119,10 +119,10 @@ class QuizServiceTest {
                 Session p = players.get(i * perGroup + j);
                 String rid =
                         registrations.stream()
-                                .filter(r -> r.text("username").equals(p.username()))
+                                .filter(r -> r.username().equals(p.username()))
                                 .findFirst()
                                 .orElseThrow()
-                                .text("id");
+                                .id();
                 service.assign(staff, rid, gid);
             }
         }
@@ -246,7 +246,7 @@ class QuizServiceTest {
         service.registrationState(staff, other, "报名截止");
         String gid = service.addGroup(staff, cid, "A", 1),
                 wrong = service.addGroup(staff, other, "B", 1),
-                rid = service.people(staff, cid, false).getFirst().text("id");
+                rid = service.people(staff, cid, false).getFirst().id();
         assertThrows(IllegalArgumentException.class, () -> service.assign(staff, rid, wrong));
         service.assign(staff, rid, gid);
         assertThrows(IllegalArgumentException.class, () -> service.assign(staff, rid, gid));

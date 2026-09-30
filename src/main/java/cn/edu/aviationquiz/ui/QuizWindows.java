@@ -1438,34 +1438,40 @@ public final class QuizWindows {
         }
 
         Node peoplePage(String cid, boolean reserved) {
-            TableView<Row> people =
-                    table("姓名", "name", "院校", "school", "学院", "college", "专业", "major",
-                            "学号", "student_number", "手机号", "phone", "账号", "username",
-                            "时间", "created_at", "小组", "group_name");
+            TableView<ParticipantView> people =
+                    typedTable(
+                            column("姓名", ParticipantView::name, 160),
+                            column("院校", ParticipantView::school, 160),
+                            column("学院", ParticipantView::college, 160),
+                            column("专业", ParticipantView::major, 160),
+                            column("学号", ParticipantView::studentNumber, 160),
+                            column("手机号", ParticipantView::phone, 160),
+                            column("账号", ParticipantView::username, 160),
+                            column("时间", p -> date(p.createdAt()), 160),
+                            column("小组", ParticipantView::groupName, 160));
             people.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
             Runnable update =
                     () ->
                             read(
-                                    () -> service.people(session, cid, reserved),
-                                    v -> rows(people, v),
+                                    () -> registrationController.participants(session, cid, reserved),
+                                    v -> typedRows(people, v, ParticipantView::id),
                                     status);
             refreshers.add(update);
             if (reserved) return page(label("预约只表示参赛意向，选手仍需自行报名"), people);
-            ComboBox<Row> group = new ComboBox<>();
+            ComboBox<GroupView> group = new ComboBox<>();
             group.setPromptText("选择小组");
             Runnable groups =
                     () ->
                             read(
-                                    () -> service.groups(session, cid),
+                                    () -> registrationController.groups(session, cid),
                                     list -> {
-                                        Row old = group.getValue();
+                                        GroupView old = group.getValue();
                                         group.getItems().setAll(list);
                                         if (old != null)
                                             list.stream()
                                                     .filter(
                                                             g ->
-                                                                    g.text("id")
-                                                                            .equals(old.text("id")))
+                                                                    g.id().equals(old.id()))
                                                     .findFirst()
                                                     .ifPresent(group::setValue);
                                     },
@@ -1500,15 +1506,14 @@ public final class QuizWindows {
                                                         if (group.getValue() == null)
                                                             throw new IllegalArgumentException(
                                                                     "请选择小组");
-                                                        String gid = group.getValue().text("id");
+                                                        String gid = group.getValue().id();
                                                         if (confirm(stage, "删除当前空小组？"))
                                                             action(
                                                                     status,
                                                                     () ->
-                                                                            service
+                                                                            registrationController
                                                                                     .deleteEmptyGroup(
-                                                                                            session,
-                                                                                            gid));
+                                                                                            session, gid));
                                                     })),
                             button(
                                     "分配所选选手",
@@ -1517,11 +1522,11 @@ public final class QuizWindows {
                                                     status,
                                                     () -> {
                                                         String registration =
-                                                                selected(people).text("id");
+                                                                selected(people).id();
                                                         if (group.getValue() == null)
                                                             throw new IllegalArgumentException(
                                                                     "请选择小组");
-                                                        String gid = group.getValue().text("id");
+                                                        String gid = group.getValue().id();
                                                         action(
                                                                 status,
                                                                 () ->

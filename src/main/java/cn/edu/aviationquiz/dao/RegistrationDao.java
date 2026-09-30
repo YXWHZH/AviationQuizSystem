@@ -4,7 +4,10 @@ import cn.edu.aviationquiz.entity.CompetitionRegistrationContext;
 import cn.edu.aviationquiz.entity.ParticipationRecord;
 import cn.edu.aviationquiz.entity.ParticipationType;
 import cn.edu.aviationquiz.entity.RegistrationRecord;
+import cn.edu.aviationquiz.entity.Models.GroupView;
+import cn.edu.aviationquiz.entity.Models.ParticipantView;
 
+import java.util.List;
 import java.util.Optional;
 
 /** Data-access contract for reservations, registrations, groups and assignments. */
@@ -18,6 +21,13 @@ public interface RegistrationDao {
 
     interface Transaction {
         CompetitionRegistrationContext findCompetition(String competitionId) throws Exception;
+
+        List<ParticipantView> findParticipants(String competitionId, boolean reserved)
+                throws Exception;
+
+        List<GroupView> findGroups(String competitionId) throws Exception;
+
+        GroupView findGroup(String groupId) throws Exception;
 
         boolean isPlayerProfileComplete(String playerId) throws Exception;
 
@@ -43,6 +53,10 @@ public interface RegistrationDao {
 
         void insertGroup(
                 String id, String competitionId, String name, int sequence) throws Exception;
+
+        boolean groupHasAssignment(String groupId) throws Exception;
+
+        void deleteGroup(String groupId) throws Exception;
 
         RegistrationRecord findActiveRegistration(String registrationId) throws Exception;
 

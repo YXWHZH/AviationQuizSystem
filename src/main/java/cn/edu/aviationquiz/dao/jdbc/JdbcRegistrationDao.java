@@ -8,7 +8,10 @@ import cn.edu.aviationquiz.entity.CompetitionRegistrationContext;
 import cn.edu.aviationquiz.entity.ParticipationRecord;
 import cn.edu.aviationquiz.entity.ParticipationType;
 import cn.edu.aviationquiz.entity.RegistrationRecord;
+import cn.edu.aviationquiz.entity.Models.GroupView;
+import cn.edu.aviationquiz.entity.Models.ParticipantView;
 
+import java.util.List;
 import java.util.Optional;
 
 /** SQLite implementation of registration and grouping persistence. */
@@ -43,6 +46,67 @@ public final class JdbcRegistrationDao implements RegistrationDao {
                     row.text("status"),
                     row.number("register_start"),
                     row.number("register_end"));
+        }
+
+        @Override
+        public List<ParticipantView> findParticipants(
+                String competitionId, boolean reserved) throws Exception {
+            String sql =
+                    reserved
+                            ? "SELECT v.id,p.name,p.username,p.school,p.college,p.major,"
+                                    + "p.student_number,p.phone,v.created_at,'' group_name FROM"
+                                    + " reservation v JOIN player p ON p.id=v.player_id WHERE"
+                                    + " v.competition_id=? AND v.status='有效'"
+                            : "SELECT r.id,p.name,p.username,p.school,p.college,p.major,"
+                                    + "p.student_number,p.phone,r.created_at,COALESCE(g.name,'待分组')"
+                                    + " group_name FROM registration r JOIN player p ON"
+                                    + " p.id=r.player_id LEFT JOIN group_assignment a ON"
+                                    + " a.registration_id=r.id LEFT JOIN competition_group g ON"
+                                    + " g.id=a.group_id WHERE r.competition_id=? AND"
+                                    + " r.status='有效' ORDER BY r.created_at,r.id";
+            return db.list(sql, competitionId).stream()
+                    .map(
+                            row ->
+                                    new ParticipantView(
+                                            row.text("id"),
+                                            row.text("name"),
+                                            row.text("username"),
+                                            row.text("school"),
+                                            row.text("college"),
+                                            row.text("major"),
+                                            row.text("student_number"),
+                                            row.text("phone"),
+                                            row.number("created_at"),
+                                            row.text("group_name")))
+                    .toList();
+        }
+
+        @Override
+        public List<GroupView> findGroups(String competitionId) throws Exception {
+            return db.list(
+                            "SELECT id,competition_id,name,sequence_no FROM competition_group"
+                                    + " WHERE competition_id=? ORDER BY sequence_no",
+                            competitionId)
+                    .stream()
+                    .map(JdbcTransaction::groupView)
+                    .toList();
+        }
+
+        @Override
+        public GroupView findGroup(String groupId) throws Exception {
+            return groupView(
+                    db.one(
+                            "SELECT id,competition_id,name,sequence_no FROM competition_group"
+                                    + " WHERE id=?",
+                            groupId));
+        }
+
+        private static GroupView groupView(Row row) {
+            return new GroupView(
+                    row.text("id"),
+                    row.text("competition_id"),
+                    row.text("name"),
+                    (int) row.number("sequence_no"));
         }
 
         @Override
@@ -125,6 +189,16 @@ public final class JdbcRegistrationDao implements RegistrationDao {
                     competitionId,
                     name,
                     sequence);
+        }
+
+        @Override
+        public boolean groupHasAssignment(String groupId) throws Exception {
+            return db.exists("SELECT id FROM group_assignment WHERE group_id=?", groupId);
+        }
+
+        @Override
+        public void deleteGroup(String groupId) throws Exception {
+            db.execute("DELETE FROM competition_group WHERE id=?", groupId);
         }
 
         @Override

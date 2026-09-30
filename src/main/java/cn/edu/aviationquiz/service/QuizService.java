@@ -157,10 +157,6 @@ public final class QuizService
         return db.one("SELECT * FROM competition WHERE id=?", cid);
     }
 
-    private void editable(UnitOfWork db, String cid) throws Exception {
-        require(!List.of("比赛中", "已结束").contains(competition(db, cid).text("status")), "开赛后配置已锁定");
-    }
-
     @Override
     public synchronized void registrationState(Session s, String cid, String state) {
         auth(s, true);
@@ -195,35 +191,22 @@ public final class QuizService
         return participatedCompetitions(s);
     }
 
-    public synchronized List<Row> people(Session s, String cid, boolean reserved) {
+    @Override
+    public synchronized List<ParticipantView> participants(
+            Session s, String cid, boolean reserved) {
         auth(s, true);
-        return store.transaction(
-                db ->
-                        reserved
-                                ? db.list(
-                                        "SELECT v.id,p.name,p.username,p.school,p.college,p.major,p.student_number,p.phone,v.created_at,'' group_name FROM"
-                                                + " reservation v JOIN player p ON p.id=v.player_id"
-                                                + " WHERE v.competition_id=? AND v.status='有效'",
-                                        cid)
-                                : db.list(
-                                        "SELECT"
-                                            + " r.id,p.name,p.username,p.school,p.college,p.major,p.student_number,p.phone,r.created_at,COALESCE(g.name,'待分组')"
-                                            + " group_name FROM registration r JOIN player p ON"
-                                            + " p.id=r.player_id LEFT JOIN group_assignment a ON"
-                                            + " a.registration_id=r.id LEFT JOIN competition_group"
-                                            + " g ON g.id=a.group_id WHERE r.competition_id=? AND"
-                                            + " r.status='有效' ORDER BY r.created_at,r.id",
-                                        cid));
+        return registrationService.participants(cid, reserved);
     }
 
-    public synchronized List<Row> groups(Session s, String cid) {
+    public synchronized List<ParticipantView> people(
+            Session s, String cid, boolean reserved) {
+        return participants(s, cid, reserved);
+    }
+
+    @Override
+    public synchronized List<GroupView> groups(Session s, String cid) {
         signed(s);
-        return store.transaction(
-                db ->
-                        db.list(
-                                "SELECT * FROM competition_group WHERE competition_id=? ORDER BY"
-                                        + " sequence_no",
-                                cid));
+        return registrationService.groups(cid);
     }
 
     @Override
@@ -238,18 +221,10 @@ public final class QuizService
         registrationService.assign(registration, group);
     }
 
+    @Override
     public synchronized void deleteEmptyGroup(Session s, String group) {
         auth(s, true);
-        store.transaction(
-                db -> {
-                    Row g = db.one("SELECT * FROM competition_group WHERE id=?", group);
-                    editable(db, g.text("competition_id"));
-                    require(
-                            !db.exists("SELECT id FROM group_assignment WHERE group_id=?", group),
-                            "只能删除尚未分配选手的空小组");
-                    db.execute("DELETE FROM competition_group WHERE id=?", group);
-                    return null;
-                });
+        registrationService.deleteEmptyGroup(group);
     }
 
     @Override

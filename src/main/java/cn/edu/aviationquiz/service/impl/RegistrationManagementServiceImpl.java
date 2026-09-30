@@ -3,6 +3,8 @@ package cn.edu.aviationquiz.service.impl;
 import cn.edu.aviationquiz.dao.RegistrationDao;
 import cn.edu.aviationquiz.entity.CompetitionRegistrationContext;
 import cn.edu.aviationquiz.entity.ParticipationType;
+import cn.edu.aviationquiz.entity.Models.GroupView;
+import cn.edu.aviationquiz.entity.Models.ParticipantView;
 import cn.edu.aviationquiz.exception.BusinessException;
 import cn.edu.aviationquiz.service.RegistrationManagementService;
 
@@ -19,6 +21,17 @@ public final class RegistrationManagementServiceImpl
     public RegistrationManagementServiceImpl(RegistrationDao registrationDao, Clock clock) {
         this.registrationDao = registrationDao;
         this.clock = clock;
+    }
+
+    @Override
+    public List<ParticipantView> participants(String competitionId, boolean reserved) {
+        return registrationDao.inTransaction(
+                db -> db.findParticipants(competitionId, reserved));
+    }
+
+    @Override
+    public List<GroupView> groups(String competitionId) {
+        return registrationDao.inTransaction(db -> db.findGroups(competitionId));
     }
 
     @Override
@@ -102,6 +115,18 @@ public final class RegistrationManagementServiceImpl
                     String groupId = id("G");
                     db.insertGroup(groupId, competitionId, bounded(name, 1, 30, "组名"), sequence);
                     return groupId;
+                });
+    }
+
+    @Override
+    public void deleteEmptyGroup(String groupId) {
+        registrationDao.inTransaction(
+                db -> {
+                    GroupView group = db.findGroup(groupId);
+                    requireEditable(db.findCompetition(group.competitionId()));
+                    require(!db.groupHasAssignment(groupId), "只能删除尚未分配选手的空小组");
+                    db.deleteGroup(groupId);
+                    return null;
                 });
     }
 
