@@ -26,6 +26,7 @@ public final class App extends Application {
     @Override
     public void start(Stage stage) {
         Platform.setImplicitExit(false);
+        stage.setMaximized(true);
         new QuizWindows(context.runtime()).open(stage);
     }
 

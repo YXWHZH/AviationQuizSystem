@@ -14,6 +14,7 @@ import javafx.application.Platform;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
+import javafx.geometry.Orientation;
 import javafx.geometry.Side;
 import javafx.scene.*;
 import javafx.scene.control.*;
@@ -88,8 +89,8 @@ public final class QuizWindows {
         return b;
     }
 
-    private static HBox bar(Node... nodes) {
-        HBox box = new HBox(10, nodes);
+    private static FlowPane bar(Node... nodes) {
+        FlowPane box = new FlowPane(10, 10, nodes);
         box.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
         return box;
     }
@@ -97,6 +98,18 @@ public final class QuizWindows {
     private static VBox page(Node... nodes) {
         VBox box = new VBox(14, nodes);
         box.setPadding(new Insets(20));
+        box.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+        for (Node node : nodes) {
+            if (node instanceof TableView<?>
+                    || node instanceof ListView<?>
+                    || node instanceof TreeView<?>
+                    || node instanceof ScrollPane
+                    || node instanceof SplitPane
+                    || node instanceof TabPane
+                    || node instanceof StackPane) {
+                VBox.setVgrow(node, Priority.ALWAYS);
+            }
+        }
         return box;
     }
 
@@ -104,7 +117,7 @@ public final class QuizWindows {
         ImageView view = new ImageView(new Image(Objects.requireNonNull(QuizWindows.class.getResource(resource)).toExternalForm(), true));
         view.setFitWidth(width);
         view.setFitHeight(height);
-        view.setPreserveRatio(false);
+        view.setPreserveRatio(true);
         view.setSmooth(true);
         return view;
     }
@@ -118,10 +131,14 @@ public final class QuizWindows {
     }
 
     private static HBox header(Node... right) {
+        VBox identity = brand();
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
-        HBox box = new HBox(12, brand(), spacer);
-        box.getChildren().addAll(right);
+        FlowPane actions = new FlowPane(10, 8, right);
+        actions.setAlignment(javafx.geometry.Pos.CENTER_RIGHT);
+        actions.setMinWidth(0);
+        HBox.setHgrow(actions, Priority.ALWAYS);
+        HBox box = new HBox(12, identity, spacer, actions);
         box.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
         box.getStyleClass().add("aviation-header");
         return box;
@@ -140,22 +157,18 @@ public final class QuizWindows {
     private static ScrollPane scroll(Node node) {
         ScrollPane p = new ScrollPane(node);
         p.setFitToWidth(true);
+        p.setPannable(true);
         return p;
     }
 
-    private void scene(Stage stage, String name, Parent root, double width, double height) {
-        Scene scene = new Scene(root, width, height);
+    private void scene(Stage stage, String name, Parent root) {
+        Scene scene = new Scene(root);
         scene.getStylesheets()
                 .add(
                         Objects.requireNonNull(getClass().getResource("/css/app.css"))
                                 .toExternalForm());
         stage.setTitle(name);
-        stage.setMinWidth(650);
-        stage.setMinHeight(540);
         stage.setScene(scene);
-        if (Boolean.parseBoolean(System.getProperty("quiz.maximized", "true"))) {
-            stage.setMaximized(true);
-        }
     }
 
     private void error(Label target, Throwable error) {
@@ -241,7 +254,13 @@ public final class QuizWindows {
     }
 
     public void open(Stage stage) {
+        boolean firstOpen = entry == null;
         entry = stage;
+        stage.setMinWidth(640);
+        stage.setMinHeight(520);
+        if (firstOpen && Boolean.parseBoolean(System.getProperty("quiz.maximized", "true"))) {
+            stage.setMaximized(true);
+        }
         if (activeDashboard != null) {
             activeDashboard.dispose();
             activeDashboard = null;
@@ -356,8 +375,7 @@ public final class QuizWindows {
         root.setCenter(centered);
         root.setBottom(global);
         BorderPane.setMargin(global, new Insets(0, 20, 14, 20));
-        scene(stage, "航空知识竞赛 · 公共入口", root, 1120, 760);
-        stage.setMinWidth(650);
+        scene(stage, "航空知识竞赛 · 公共入口", root);
         final boolean[] compact = {false};
         stage.widthProperty().addListener((o, oldWidth, width) -> {
             boolean useCompact = width.doubleValue() < 980;
@@ -366,11 +384,9 @@ public final class QuizWindows {
             if (useCompact) {
                 wideContent.getChildren().clear();
                 compactContent.getChildren().setAll(listCard, detail);
-                listCard.setPrefHeight(360);
                 content.getChildren().setAll(compactScroll);
             } else {
                 compactContent.getChildren().clear();
-                listCard.setPrefHeight(Region.USE_COMPUTED_SIZE);
                 wideContent.add(listCard, 0, 0);
                 wideContent.add(detail, 1, 0);
                 GridPane.setHgrow(listCard, Priority.ALWAYS);
@@ -465,11 +481,11 @@ public final class QuizWindows {
         ScrollPane authScroll = scroll(cardHolder);
         authScroll.getStyleClass().add("auth-scroll");
         StackPane center = new StackPane(background, authScroll);
-        card.prefWidthProperty().bind(center.widthProperty().multiply(.38));
+        card.prefWidthProperty().bind(center.widthProperty().subtract(64));
         background.fitWidthProperty().bind(center.widthProperty());
         background.fitHeightProperty().bind(center.heightProperty());
         root.setCenter(center);
-        scene(entry, create ? "航空知识竞赛 · 选手注册" : "航空知识竞赛 · 选手登录", root, 1120, 760);
+        scene(entry, create ? "航空知识竞赛 · 选手注册" : "航空知识竞赛 · 选手登录", root);
     }
 
     private void openPlayerAfterLogin(Session session) {
@@ -536,8 +552,6 @@ public final class QuizWindows {
         final Stage stage;
         final Scene previousScene;
         final String previousTitle;
-        final double previousMinWidth;
-        final double previousMinHeight;
         final GridPane grid = new GridPane();
         final Label status = label("");
         final VBox body;
@@ -550,24 +564,28 @@ public final class QuizWindows {
             stage = (Stage) owner;
             previousScene = stage.getScene();
             previousTitle = stage.getTitle();
-            previousMinWidth = stage.getMinWidth();
-            previousMinHeight = stage.getMinHeight();
             onCancel = this::close;
             grid.setHgap(16);
             grid.setVgap(10);
+            ColumnConstraints labels = new ColumnConstraints();
+            labels.setMinWidth(Region.USE_PREF_SIZE);
+            ColumnConstraints controls = new ColumnConstraints();
+            controls.setHgrow(Priority.ALWAYS);
+            controls.setPercentWidth(74);
+            grid.getColumnConstraints().addAll(labels, controls);
+            grid.setMaxWidth(Double.MAX_VALUE);
             body = page(QuizWindows.title(title), grid, status);
             body.getStyleClass().add("form-page");
+            body.setMaxWidth(900);
             StackPane holder = new StackPane(body);
             holder.setPadding(new Insets(32));
             holder.getStyleClass().add("form-holder");
-            scene(stage, title, scroll(holder), 620, 560);
+            scene(stage, title, scroll(holder));
         }
 
         void close() {
             stage.setScene(previousScene);
             stage.setTitle(previousTitle);
-            stage.setMinWidth(previousMinWidth);
-            stage.setMinHeight(previousMinHeight);
         }
 
         <T extends Control> T field(String name, T control) {
@@ -700,10 +718,7 @@ public final class QuizWindows {
                         + session.name()
                         + " · "
                         + session.username(),
-                dashboard.root,
-                session.staff() ? 1200 : 950,
-                780);
-        if (session.staff()) stage.setMinWidth(1050);
+                dashboard.root);
         dashboard.refresh();
     }
 
@@ -749,6 +764,11 @@ public final class QuizWindows {
                 Button logout = button("退出登录", () -> logoutToLobby(this)); logout.getStyleClass().add("quiet-button");
                 Region spacer = new Region(); HBox.setHgrow(spacer, Priority.ALWAYS);
                 HBox top = new HBox(18, identity, spacer, account, logout); top.setAlignment(javafx.geometry.Pos.CENTER_LEFT); top.getStyleClass().add("staff-topbar");
+                stage.widthProperty().addListener((o, old, width) -> {
+                    boolean showAccount = width.doubleValue() >= 820;
+                    account.setManaged(showAccount);
+                    account.setVisible(showAccount);
+                });
                 root = new VBox(top, navigation, status); root.getStyleClass().add("staff-shell");
             } else {
                 navigation.getStyleClass().add("player-pages");
@@ -780,6 +800,7 @@ public final class QuizWindows {
                 root = new VBox(top, navigation, status);
                 root.getStyleClass().add("player-shell");
             }
+            root.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
             runtime.listen(listener);
         }
 
@@ -794,10 +815,17 @@ public final class QuizWindows {
             VBox registeredCard = statCard("已报名竞赛", registered, "查看我的竞赛");
             VBox reservedCard = statCard("已预约竞赛", reserved, "报名开放后记得确认");
             VBox completedCard = statCard("已完成竞赛", completed, "回顾成绩与排名");
-            HBox stats = new HBox(16, registeredCard, reservedCard, completedCard);
-            stats.getChildren().forEach(n -> HBox.setHgrow(n, Priority.ALWAYS));
+            TilePane stats = new TilePane(16, 16, registeredCard, reservedCard, completedCard);
+            stats.setPrefColumns(3);
+            stats.setPrefTileWidth(180);
+            stats.setTileAlignment(javafx.geometry.Pos.TOP_LEFT);
             Label next = label("正在加载最近赛程…");
-            VBox nextCard = new VBox(12, title("最近可参与竞赛"), image("/images/aviation-banner.png", 760, 245), next,
+            ImageView hero = image("/images/aviation-banner.png", 0, 0);
+            StackPane heroFrame = new StackPane(hero);
+            heroFrame.getStyleClass().add("dashboard-hero");
+            hero.fitWidthProperty().bind(heroFrame.widthProperty());
+            hero.fitHeightProperty().bind(heroFrame.heightProperty());
+            VBox nextCard = new VBox(12, title("最近可参与竞赛"), heroFrame, next,
                     button("前往竞赛大厅", () -> navigation.getSelectionModel().select(1)));
             nextCard.getStyleClass().add("card");
             Runnable refresh = () -> read(() -> competitionManagementController.competitionsForPlayer(session), list -> {
@@ -825,11 +853,18 @@ public final class QuizWindows {
             GridPane fields = new GridPane();
             fields.setHgap(24);
             fields.setVgap(16);
+            ColumnConstraints fieldNames = new ColumnConstraints();
+            fieldNames.setMinWidth(Region.USE_PREF_SIZE);
+            ColumnConstraints fieldValues = new ColumnConstraints();
+            fieldValues.setHgrow(Priority.ALWAYS);
+            fieldValues.setPercentWidth(75);
+            fields.getColumnConstraints().addAll(fieldNames, fieldValues);
             String[] labels = {"账号", "姓名", "院校", "学院", "专业", "学号", "手机号"};
             List<Label> values = new ArrayList<>();
             for (int i = 0; i < labels.length; i++) {
                 Label value = label("—");
                 value.getStyleClass().add("profile-value");
+                value.setMaxWidth(Double.MAX_VALUE);
                 fields.add(label(labels[i]), 0, i);
                 fields.add(value, 1, i);
                 values.add(value);
@@ -909,7 +944,7 @@ public final class QuizWindows {
                                     status);
             categoryFilter.setOnAction(e -> refresh.run());
             refreshers.add(refresh);
-            HBox actions =
+            FlowPane actions =
                     bar(
                             label("分类"),
                             categoryFilter,
@@ -927,8 +962,9 @@ public final class QuizWindows {
                                         () -> safe(status, () -> workspace(selected(table)))));
             if (session.staff()) {
                 actions.getStyleClass().add("workspace-toolbar"); actions.getChildren().get(4).getStyleClass().add("primary-button");
-                HBox summary = new HBox(14, staffStat("全部竞赛", total, "当前已维护的赛事"), staffStat("待开赛", open, "报名及准备阶段"), staffStat("进行中", running, "正在进行的赛场"));
-                summary.getChildren().forEach(n -> HBox.setHgrow(n, Priority.ALWAYS));
+                TilePane summary = new TilePane(14, 14, staffStat("全部竞赛", total, "当前已维护的赛事"), staffStat("待开赛", open, "报名及准备阶段"), staffStat("进行中", running, "正在进行的赛场"));
+                summary.setPrefColumns(3);
+                summary.setPrefTileWidth(180);
                 VBox content = page(summary, title("竞赛中心"), label("集中维护赛程、报名状态与比赛工作区"), actions, table); content.getStyleClass().add("staff-page"); return content;
             }
 
@@ -1399,6 +1435,8 @@ public final class QuizWindows {
             Button back = button("返回竞赛中心", () -> navigation.getSelectionModel().select(0)); back.getStyleClass().add("back-button");
             VBox context = new VBox(4, heading, label("当前赛事工作区 · 按流程完成报名、编排、控制与归档")); Region spacer = new Region(); HBox.setHgrow(spacer, Priority.ALWAYS);
             HBox workspaceHeader = new HBox(16, back, context, spacer, state); workspaceHeader.setAlignment(javafx.geometry.Pos.CENTER_LEFT); workspaceHeader.getStyleClass().add("workspace-header");
+            HBox.setHgrow(context, Priority.ALWAYS);
+            context.setMinWidth(0);
             TabPane workTabs = tabs(tab("01  报名状态", setup), tab("02  分组编排", peoplePage(cid, false)), tab("03  轮次题单", roundPage(cid)), tab("04  现场控制", controlPage(cid))); workTabs.getStyleClass().add("workspace-tabs");
             VBox content = page(workspaceHeader, workTabs); content.getStyleClass().addAll("staff-page", "workspace-page");
             openTab("work" + cid, competition.name() + " · 工作区", content);
@@ -1417,7 +1455,7 @@ public final class QuizWindows {
                             column("账号", ParticipantView::username, 160),
                             column("时间", p -> date(p.createdAt()), 160),
                             column("小组", ParticipantView::groupName, 160));
-            people.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
+            people.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
             Runnable update =
                     () ->
                             read(
@@ -1595,7 +1633,7 @@ public final class QuizWindows {
                                                 Form f = new Form(stage, "为轮次添加题目");
                                                 ComboBox<QuestionView> q =
                                                         f.field("启用题目", new ComboBox<>());
-                                                q.setPrefWidth(380);
+                                                q.setMaxWidth(Double.MAX_VALUE);
                                                 read(
                                                         () ->
                                                                 questionBankController
@@ -1954,6 +1992,14 @@ public final class QuizWindows {
             SplitPane split = new SplitPane(scroll(controls), monitoring);
             split.setDividerPositions(.52);
             split.getStyleClass().add("control-split");
+            Runnable responsiveSplit =
+                    () -> {
+                        boolean narrow = stage.getWidth() < 1000;
+                        split.setOrientation(narrow ? Orientation.VERTICAL : Orientation.HORIZONTAL);
+                        split.setDividerPositions(narrow ? .48 : .52);
+                    };
+            stage.widthProperty().addListener((o, old, width) -> responsiveSplit.run());
+            responsiveSplit.run();
             VBox.setVgrow(split, Priority.ALWAYS);
             VBox content = page(liveBoard, split); content.getStyleClass().add("control-page"); return content;
         }
