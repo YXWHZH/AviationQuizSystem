@@ -20,8 +20,6 @@ public final class QuizService
                 QuestionBankUseCases,
                 RegistrationUseCases,
                 ResultUseCases {
-    private static final String COMPETITION_SELECT =
-            "SELECT c.*,(SELECT GROUP_CONCAT(category,' / ') FROM competition_category cc WHERE cc.competition_id=c.id ORDER BY category) categories FROM competition c ";
     private final Store store;
     private final Clock clock;
     private final AccountManagementService accountService;
@@ -138,34 +136,15 @@ public final class QuizService
         if (s != null) sessions.remove(s.token());
     }
 
-    public synchronized List<Row> competitions() {
-        return store.transaction(
-                db -> db.list(COMPETITION_SELECT + "ORDER BY c.competition_time DESC,c.id"));
+    @Override
+    public synchronized List<CompetitionView> competitions() {
+        return competitionManagementService.competitions();
     }
 
-    public synchronized List<Row> competitionsForPlayer(Session s) {
+    @Override
+    public synchronized List<CompetitionView> competitionsForPlayer(Session s) {
         auth(s, false);
-        return store.transaction(
-                db ->
-                        db.list(
-                                """
-SELECT c.*,(SELECT GROUP_CONCAT(category,' / ') FROM competition_category cc WHERE cc.competition_id=c.id ORDER BY category) categories,
- CASE
-  WHEN reg.status='有效' AND ga.id IS NOT NULL THEN '已分组'
-  WHEN reg.status='有效' THEN '已报名'
-  WHEN res.status='有效' THEN '已预约'
-  WHEN reg.status='已取消' THEN '已取消报名'
-  WHEN res.status='已取消' THEN '已取消预约'
-  ELSE '未参与'
- END my_status
-FROM competition c
-LEFT JOIN registration reg ON reg.competition_id=c.id AND reg.player_id=?
-LEFT JOIN group_assignment ga ON ga.registration_id=reg.id
-LEFT JOIN reservation res ON res.competition_id=c.id AND res.player_id=?
-ORDER BY c.competition_time DESC,c.id
-""",
-                                s.id(),
-                                s.id()));
+        return competitionManagementService.competitionsForPlayer(s.id());
     }
 
     @Override
@@ -206,23 +185,14 @@ ORDER BY c.competition_time DESC,c.id
                 reservation ? ParticipationType.RESERVATION : ParticipationType.REGISTRATION);
     }
 
-    public synchronized List<Row> mine(Session s) {
+    @Override
+    public synchronized List<CompetitionView> participatedCompetitions(Session s) {
         auth(s, false);
-        return store.transaction(
-                db ->
-                        db.list(
-                                """
-SELECT c.*,(SELECT GROUP_CONCAT(category,' / ') FROM competition_category cc WHERE cc.competition_id=c.id ORDER BY category) categories,
-CASE WHEN r.status='有效' THEN '已报名' WHEN v.status='有效' THEN '已预约' WHEN r.status='已取消' THEN '已取消报名' ELSE '已取消预约' END participation,
-CASE WHEN r.status='有效' THEN CASE WHEN g.id IS NULL THEN '待分组' ELSE g.name END ELSE '—' END group_name,
-CASE WHEN r.status='有效' AND g.id IS NOT NULL THEN '已分组' WHEN r.status='有效' THEN '已报名' WHEN v.status='有效' THEN '已预约' WHEN r.status='已取消' THEN '已取消报名' ELSE '已取消预约' END my_status
-FROM competition c LEFT JOIN registration r ON r.competition_id=c.id AND r.player_id=?
-LEFT JOIN group_assignment a ON a.registration_id=r.id LEFT JOIN competition_group g ON g.id=a.group_id
-LEFT JOIN reservation v ON v.competition_id=c.id AND v.player_id=?
-WHERE r.id IS NOT NULL OR v.id IS NOT NULL ORDER BY c.competition_time DESC
-""",
-                                s.id(),
-                                s.id()));
+        return competitionManagementService.participatedCompetitions(s.id());
+    }
+
+    public synchronized List<CompetitionView> mine(Session s) {
+        return participatedCompetitions(s);
     }
 
     public synchronized List<Row> people(Session s, String cid, boolean reserved) {

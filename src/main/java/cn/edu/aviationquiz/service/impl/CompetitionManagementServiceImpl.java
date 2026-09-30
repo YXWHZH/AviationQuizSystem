@@ -3,6 +3,7 @@ package cn.edu.aviationquiz.service.impl;
 import cn.edu.aviationquiz.dao.CompetitionDao;
 import cn.edu.aviationquiz.entity.CompetitionSetupContext;
 import cn.edu.aviationquiz.entity.Models.CompetitionInput;
+import cn.edu.aviationquiz.entity.Models.CompetitionView;
 import cn.edu.aviationquiz.exception.BusinessException;
 import cn.edu.aviationquiz.service.CompetitionManagementService;
 
@@ -22,6 +23,21 @@ public final class CompetitionManagementServiceImpl
     public CompetitionManagementServiceImpl(CompetitionDao competitionDao, Clock clock) {
         this.competitionDao = competitionDao;
         this.clock = clock;
+    }
+
+    @Override
+    public List<CompetitionView> competitions() {
+        return competitionDao.inTransaction(CompetitionDao.Transaction::findAll);
+    }
+
+    @Override
+    public List<CompetitionView> competitionsForPlayer(String playerId) {
+        return competitionDao.inTransaction(db -> db.findAllForPlayer(playerId));
+    }
+
+    @Override
+    public List<CompetitionView> participatedCompetitions(String playerId) {
+        return competitionDao.inTransaction(db -> db.findParticipatedByPlayer(playerId));
     }
 
     @Override

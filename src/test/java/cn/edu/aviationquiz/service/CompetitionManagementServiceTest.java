@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import cn.edu.aviationquiz.dao.CompetitionDao;
 import cn.edu.aviationquiz.entity.CompetitionSetupContext;
 import cn.edu.aviationquiz.entity.Models.CompetitionInput;
+import cn.edu.aviationquiz.entity.Models.CompetitionView;
 import cn.edu.aviationquiz.exception.BusinessException;
 import cn.edu.aviationquiz.service.impl.CompetitionManagementServiceImpl;
 
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Set;
 
 class CompetitionManagementServiceTest {
@@ -90,6 +92,21 @@ class CompetitionManagementServiceTest {
         private CompetitionInput updated;
         private Set<String> categories;
         private String updatedStatus;
+
+        @Override
+        public List<CompetitionView> findAll() {
+            return List.of();
+        }
+
+        @Override
+        public List<CompetitionView> findAllForPlayer(String playerId) {
+            return List.of();
+        }
+
+        @Override
+        public List<CompetitionView> findParticipatedByPlayer(String playerId) {
+            return List.of();
+        }
 
         @Override
         public <T> T inTransaction(Work<T> work) {

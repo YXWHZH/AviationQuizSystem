@@ -282,18 +282,13 @@ public final class QuizWindows {
         }
         lobbyListeners.forEach(runtime::unlisten);
         lobbyListeners.clear();
-        TableView<Row> all =
-                table(
-                        "竞赛",
-                        "name",
-                        "分类",
-                        "categories",
-                        "状态",
-                        "status",
-                        "比赛时间",
-                        "competition_time",
-                        "简介",
-                        "description");
+        TableView<CompetitionView> all =
+                typedTable(
+                        column("竞赛", CompetitionView::name, 160),
+                        column("分类", CompetitionView::categories, 160),
+                        column("状态", CompetitionView::status, 160),
+                        column("比赛时间", c -> date(c.competitionTime()), 160),
+                        column("简介", CompetitionView::description, 160));
         ComboBox<String> filter =
                 new ComboBox<>(
                         FXCollections.observableArrayList(
@@ -304,10 +299,10 @@ public final class QuizWindows {
         Runnable refresh =
                 () ->
                         read(
-                                service::competitions,
+                                competitionManagementController::competitions,
                                 list -> {
-                                    rows(all, list.stream().filter(r -> (filter.getValue().equals("全部") || filter.getValue().equals(r.text("status")))
-                                            && (categoryFilter.getValue().equals("全部分类") || r.text("categories").contains(categoryFilter.getValue()))).toList());
+                                    typedRows(all, list.stream().filter(r -> (filter.getValue().equals("全部") || filter.getValue().equals(r.status()))
+                                            && (categoryFilter.getValue().equals("全部分类") || r.categories().contains(categoryFilter.getValue()))).toList(), CompetitionView::id);
                                     if (all.getSelectionModel().getSelectedItem() == null && !all.getItems().isEmpty())
                                         all.getSelectionModel().selectFirst();
                                 },
@@ -345,9 +340,9 @@ public final class QuizWindows {
         detail.getChildren().addAll(detailTitle, detailState, bannerFrame, detailText);
         all.getSelectionModel().selectedItemProperty().addListener((o, old, c) -> {
             if (c == null) return;
-            detailTitle.setText(c.text("name"));
-            detailState.setText("● " + c.text("status") + "   " + c.text("categories") + "   比赛时间  " + date(c.number("competition_time")));
-            detailText.setText(c.text("description") + "\n\n报名时间\n" + date(c.number("register_start")) + " — " + date(c.number("register_end")) + "\n\n晋级名额  " + c.number("advance_count") + " 人");
+            detailTitle.setText(c.name());
+            detailState.setText("● " + c.status() + "   " + c.categories() + "   比赛时间  " + date(c.competitionTime()));
+            detailText.setText(c.description() + "\n\n报名时间\n" + date(c.registerStart()) + " — " + date(c.registerEnd()) + "\n\n晋级名额  " + c.advanceCount() + " 人");
             banner.setManaged(true);
             banner.setVisible(true);
         });
@@ -549,25 +544,25 @@ public final class QuizWindows {
         }, global);
     }
 
-    private void details(Row c) {
+    private void details(CompetitionView c) {
         Alert a = new Alert(Alert.AlertType.INFORMATION);
         a.initOwner(entry);
         a.setTitle("竞赛详情");
-        a.setHeaderText(c.text("name"));
+        a.setHeaderText(c.name());
         a.setContentText(
-                c.text("description")
+                c.description()
                         + "\n状态："
-                        + c.text("status")
+                        + c.status()
                         + "\n分类："
-                        + c.text("categories")
+                        + c.categories()
                         + "\n报名开始："
-                        + date(c.number("register_start"))
+                        + date(c.registerStart())
                         + "\n报名截止："
-                        + date(c.number("register_end"))
+                        + date(c.registerEnd())
                         + "\n比赛时间："
-                        + date(c.number("competition_time"))
+                        + date(c.competitionTime())
                         + "\n晋级名额："
-                        + c.number("advance_count"));
+                        + c.advanceCount());
         a.show();
     }
 
@@ -839,13 +834,13 @@ public final class QuizWindows {
             VBox nextCard = new VBox(12, title("最近可参与竞赛"), image("/images/aviation-banner.png", 760, 245), next,
                     button("前往竞赛大厅", () -> navigation.getSelectionModel().select(1)));
             nextCard.getStyleClass().add("card");
-            Runnable refresh = () -> read(() -> service.competitionsForPlayer(session), list -> {
-                long reg = list.stream().filter(r -> Set.of("已报名", "已分组").contains(r.text("my_status"))).count();
-                long res = list.stream().filter(r -> r.text("my_status").equals("已预约")).count();
-                long done = list.stream().filter(r -> r.text("status").equals("已结束") && Set.of("已报名", "已分组").contains(r.text("my_status"))).count();
+            Runnable refresh = () -> read(() -> competitionManagementController.competitionsForPlayer(session), list -> {
+                long reg = list.stream().filter(r -> Set.of("已报名", "已分组").contains(r.myStatus())).count();
+                long res = list.stream().filter(r -> r.myStatus().equals("已预约")).count();
+                long done = list.stream().filter(r -> r.status().equals("已结束") && Set.of("已报名", "已分组").contains(r.myStatus())).count();
                 registered.setText(String.valueOf(reg)); reserved.setText(String.valueOf(res)); completed.setText(String.valueOf(done));
-                list.stream().filter(r -> !r.text("status").equals("已结束")).min(Comparator.comparingLong(r -> r.number("competition_time")))
-                        .ifPresentOrElse(r -> next.setText(r.text("name") + "\n" + r.text("status") + " · " + date(r.number("competition_time"))), () -> next.setText("当前没有待参与的竞赛"));
+                list.stream().filter(r -> !r.status().equals("已结束")).min(Comparator.comparingLong(CompetitionView::competitionTime))
+                        .ifPresentOrElse(r -> next.setText(r.name() + "\n" + r.status() + " · " + date(r.competitionTime())), () -> next.setText("当前没有待参与的竞赛"));
             }, status);
             refreshers.add(refresh);
             VBox content = page(title("你好，" + session.name()), label("欢迎回到航空知识竞赛中心，今天也向蓝天更近一步。"), stats, nextCard);
@@ -906,46 +901,29 @@ public final class QuizWindows {
         final List<Timeline> roomTimers = new ArrayList<>();
 
         Node competitionPage(boolean mine) {
-            TableView<Row> table =
+            TableView<CompetitionView> table =
                     mine
-                            ? table(
-                                    "竞赛",
-                                    "name",
-                                    "分类",
-                                    "categories",
-                                    "报名情况",
-                                    "participation",
-                                    "分组",
-                                    "group_name",
-                                    "状态",
-                                    "status",
-                                    "比赛时间",
-                                    "competition_time")
+                            ? typedTable(
+                                    column("竞赛", CompetitionView::name, 160),
+                                    column("分类", CompetitionView::categories, 160),
+                                    column("报名情况", CompetitionView::participation, 160),
+                                    column("分组", CompetitionView::groupName, 160),
+                                    column("状态", CompetitionView::status, 160),
+                                    column("比赛时间", c -> date(c.competitionTime()), 160))
                             : session.staff()
-                                    ? table(
-                                            "竞赛",
-                                            "name",
-                                            "分类",
-                                            "categories",
-                                            "状态",
-                                            "status",
-                                            "比赛时间",
-                                            "competition_time",
-                                            "简介",
-                                            "description")
-                                    : table(
-                                            "竞赛",
-                                            "name",
-                                            "分类",
-                                            "categories",
-                                            "状态",
-                                            "status",
-                                            "我的状态",
-                                            "my_status",
-                                            "比赛时间",
-                                            "competition_time",
-                                            "简介",
-                                            "description");
+                                    ? typedTable(
+                                            column("竞赛", CompetitionView::name, 160),
+                                            column("分类", CompetitionView::categories, 160),
+                                            column("状态", CompetitionView::status, 160),
+                                            column("比赛时间", c -> date(c.competitionTime()), 160),
+                                            column("简介", CompetitionView::description, 160))
+                                    : typedTable(
+                                            column("竞赛", CompetitionView::name, 160),
+                                            column("分类", CompetitionView::categories, 160),
+                                            column("状态", CompetitionView::status, 160),
+                                            column("我的状态", CompetitionView::myStatus, 160),
+                                            column("比赛时间", c -> date(c.competitionTime()), 160),
+                                            column("简介", CompetitionView::description, 160));
             ComboBox<String> categoryFilter = new ComboBox<>(FXCollections.observableArrayList("全部分类", "民航史", "飞行原理", "航空法规"));
             categoryFilter.setValue("全部分类");
             Label total = label("—"), open = label("—"), running = label("—");
@@ -954,12 +932,14 @@ public final class QuizWindows {
                             read(
                                     () ->
                                             mine
-                                                    ? service.mine(session)
+                                                    ? competitionManagementController
+                                                            .participatedCompetitions(session)
                                                     : session.staff()
-                                                            ? service.competitions()
-                                                            : service.competitionsForPlayer(
-                                                                    session),
-                                    v -> { if (!disposed) { total.setText(String.valueOf(v.size())); open.setText(String.valueOf(v.stream().filter(r -> Set.of("未开放", "报名中", "报名截止").contains(r.text("status"))).count())); running.setText(String.valueOf(v.stream().filter(r -> r.text("status").equals("比赛中")).count())); rows(table, v.stream().filter(r -> categoryFilter.getValue().equals("全部分类") || r.text("categories").contains(categoryFilter.getValue())).toList()); } },
+                                                            ? competitionManagementController
+                                                                    .competitions()
+                                                            : competitionManagementController
+                                                                    .competitionsForPlayer(session),
+                                    v -> { if (!disposed) { total.setText(String.valueOf(v.size())); open.setText(String.valueOf(v.stream().filter(r -> Set.of("未开放", "报名中", "报名截止").contains(r.status())).count())); running.setText(String.valueOf(v.stream().filter(r -> r.status().equals("比赛中")).count())); typedRows(table, v.stream().filter(r -> categoryFilter.getValue().equals("全部分类") || r.categories().contains(categoryFilter.getValue())).toList(), CompetitionView::id); } },
                                     status);
             categoryFilter.setOnAction(e -> refresh.run());
             refreshers.add(refresh);
@@ -995,7 +975,7 @@ public final class QuizWindows {
                                             safe(
                                                     status,
                                                     () -> {
-                                                        String cid = selected(table).text("id");
+                                                        String cid = selected(table).id();
                                                         action(
                                                                 status,
                                                                 () ->
@@ -1010,7 +990,7 @@ public final class QuizWindows {
                                             safe(
                                                     status,
                                                     () -> {
-                                                        String cid = selected(table).text("id");
+                                                        String cid = selected(table).id();
                                                         action(
                                                                 status,
                                                                 () ->
@@ -1022,14 +1002,14 @@ public final class QuizWindows {
                             button(
                                     "取消预约",
                                     () -> safe(status, () -> {
-                                        String cid = selected(table).text("id");
+                                        String cid = selected(table).id();
                                         action(status, () -> registrationController.cancel(session, cid, true));
                                     })),
                     cancelRegister =
                             button(
                                     "取消报名",
                                     () -> safe(status, () -> {
-                                        String cid = selected(table).text("id");
+                                        String cid = selected(table).id();
                                         action(status, () -> registrationController.cancel(session, cid, false));
                                     })),
                     enter = button("进入比赛室", () -> safe(status, () -> room(selected(table))));
@@ -1039,7 +1019,7 @@ public final class QuizWindows {
 
             Runnable updateActions =
                     () -> {
-                        Row selected = table.getSelectionModel().getSelectedItem();
+                        CompetitionView selected = table.getSelectionModel().getSelectedItem();
                         if (selected == null) {
                             reserve.setDisable(true);
                             cancelReserve.setDisable(true);
@@ -1049,8 +1029,8 @@ public final class QuizWindows {
                             operationHint.setText("请先选择一场竞赛");
                             return;
                         }
-                        String state = selected.text("status");
-                        String participation = selected.text("my_status");
+                        String state = selected.status();
+                        String participation = selected.myStatus();
                         long now = System.currentTimeMillis();
                         boolean reserved = participation.equals("已预约");
                         boolean cancelledReservation = participation.equals("已取消预约");
@@ -1059,8 +1039,8 @@ public final class QuizWindows {
                                 participation.equals("已报名") || participation.equals("已分组");
                         boolean canReserve = state.equals("未开放") && !reserved && !registered && !cancelledRegistration;
                         boolean inRegistrationTime =
-                                now >= selected.number("register_start")
-                                        && now < selected.number("register_end");
+                                now >= selected.registerStart()
+                                        && now < selected.registerEnd();
                         boolean canRegister =
                                 state.equals("报名中") && inRegistrationTime && !registered;
                         reserve.setDisable(!canReserve);
@@ -1097,34 +1077,34 @@ public final class QuizWindows {
         }
 
 
-        void competitionForm(Row c) {
+        void competitionForm(CompetitionView c) {
             Form f = new Form(stage, c == null ? "新建竞赛" : "修改竞赛");
             long base = System.currentTimeMillis();
-            TextField name = f.text("名称", c == null ? "" : c.text("name"));
+            TextField name = f.text("名称", c == null ? "" : c.name());
             TextArea desc =
-                    f.field("简介（最多 200 字）", new TextArea(c == null ? "" : c.text("description")));
+                    f.field("简介（最多 200 字）", new TextArea(c == null ? "" : c.description()));
             desc.setPrefRowCount(2);
             CheckBox history = new CheckBox("民航史"), principles = new CheckBox("飞行原理"), law = new CheckBox("航空法规");
-            String existingCategories = c == null ? "民航史/飞行原理/航空法规" : c.text("categories");
+            String existingCategories = c == null ? "民航史/飞行原理/航空法规" : c.categories();
             history.setSelected(existingCategories.contains("民航史"));
             principles.setSelected(existingCategories.contains("飞行原理"));
             law.setSelected(existingCategories.contains("航空法规"));
             f.field("竞赛分类（可多选）", history);
             f.field("", principles);
             f.field("", law);
-            TextField start = f.text("报名开始", date(c == null ? base : c.number("register_start"))),
+            TextField start = f.text("报名开始", date(c == null ? base : c.registerStart())),
                     end =
                             f.text(
                                     "报名截止",
-                                    date(c == null ? base + 3600000 : c.number("register_end"))),
+                                    date(c == null ? base + 3600000 : c.registerEnd())),
                     time =
                             f.text(
                                     "比赛时间",
                                     date(
                                             c == null
                                                     ? base + 7200000
-                                                    : c.number("competition_time"))),
-                    quota = f.text("晋级名额", c == null ? "1" : c.text("advance_count"));
+                                                    : c.competitionTime())),
+                    quota = f.text("晋级名额", c == null ? "1" : String.valueOf(c.advanceCount()));
             f.body.getChildren().add(label("时间格式：yyyy-MM-dd HH:mm:ss"));
             f.save(
                     "保存",
@@ -1143,7 +1123,7 @@ public final class QuizWindows {
                         return (Callable<String>)
                                 () ->
                                         competitionManagementController.save(
-                                                session, c == null ? null : c.text("id"), input);
+                                                session, c == null ? null : c.id(), input);
                     },
                     () -> {});
         }
@@ -1405,23 +1385,23 @@ public final class QuizWindows {
             } else t.getItems().setAll(list);
         }
 
-        void workspace(Row competition) {
-            String cid = competition.text("id");
+        void workspace(CompetitionView competition) {
+            String cid = competition.id();
             if (existing("work" + cid)) return;
-            Label heading = title(competition.text("name")),
-                    state = label(competition.text("status"));
+            Label heading = title(competition.name()),
+                    state = label(competition.status());
             Runnable update =
                     () ->
                             read(
-                                    service::competitions,
+                                    competitionManagementController::competitions,
                                     list ->
                                             list.stream()
-                                                    .filter(c -> c.text("id").equals(cid))
+                                                    .filter(c -> c.id().equals(cid))
                                                     .findFirst()
                                                     .ifPresent(
                                                             c -> {
-                                                                heading.setText(c.text("name"));
-                                                                state.setText(c.text("status"));
+                                                                heading.setText(c.name());
+                                                                state.setText(c.status());
                                                             }),
                                     status);
             refreshers.add(update);
@@ -1453,7 +1433,7 @@ public final class QuizWindows {
             HBox workspaceHeader = new HBox(16, back, context, spacer, state); workspaceHeader.setAlignment(javafx.geometry.Pos.CENTER_LEFT); workspaceHeader.getStyleClass().add("workspace-header");
             TabPane workTabs = tabs(tab("01  报名状态", setup), tab("02  分组编排", peoplePage(cid, false)), tab("03  轮次题单", roundPage(cid)), tab("04  现场控制", controlPage(cid))); workTabs.getStyleClass().add("workspace-tabs");
             VBox content = page(workspaceHeader, workTabs); content.getStyleClass().addAll("staff-page", "workspace-page");
-            openTab("work" + cid, competition.text("name") + " · 工作区", content);
+            openTab("work" + cid, competition.name() + " · 工作区", content);
             refresh();
         }
 
@@ -1866,7 +1846,7 @@ public final class QuizWindows {
             tick.play();
             roomTimers.add(tick);
             record ControlSnapshot(
-                    Row competition,
+                    CompetitionView competition,
                     CompetitionProgressView current,
                     ActiveReleaseView release,
                     List<PlayerSubmissionView> monitor,
@@ -1877,9 +1857,9 @@ public final class QuizWindows {
                     () ->
                             read(
                                     () -> {
-                                        Row c =
-                                                service.competitions().stream()
-                                                        .filter(v -> v.text("id").equals(cid))
+                                        CompetitionView c =
+                                                competitionManagementController.competitions().stream()
+                                                        .filter(v -> v.id().equals(cid))
                                                         .findFirst()
                                                         .orElseThrow();
                                         CompetitionProgressView gr =
@@ -1903,11 +1883,11 @@ public final class QuizWindows {
                                         boolean
                                                 running =
                                                         v.competition()
-                                                                .text("status")
+                                                                .status()
                                                                 .equals("比赛中"),
                                                 ended =
                                                         v.competition()
-                                                                .text("status")
+                                                                .status()
                                                                 .equals("已结束");
                                         CompetitionProgressView gr = v.current();
                                         ActiveReleaseView qr = v.release();
@@ -1922,7 +1902,7 @@ public final class QuizWindows {
                                         liveBoard.setVisible(!ended);
                                         liveBoard.setManaged(!ended);
                                         progress.setText(
-                                                v.competition().text("status")
+                                                v.competition().status()
                                                         + (gr == null
                                                                 ? " · 所有分组轮次已完成或尚未开赛"
                                                                 : " · "
@@ -1956,7 +1936,7 @@ public final class QuizWindows {
                                                                                 / 1000)
                                                                 + " 秒");
                                         start.setDisable(
-                                                !v.competition().text("status").equals("报名截止"));
+                                                !v.competition().status().equals("报名截止"));
                                         begin.setDisable(
                                                 !running
                                                         || gr == null
@@ -2005,10 +1985,10 @@ public final class QuizWindows {
             VBox content = page(liveBoard, split); content.getStyleClass().add("control-page"); return content;
         }
 
-        void room(Row competition) {
-            String cid = competition.text("id");
+        void room(CompetitionView competition) {
+            String cid = competition.id();
             if (existing("room" + cid)) return;
-            Label heading = title(competition.text("name")),
+            Label heading = title(competition.name()),
                     info = label("等待工作人员发布本组题目"),
                     timer = label(""),
                     content = label(""),
@@ -2131,11 +2111,11 @@ public final class QuizWindows {
                                             new RoomSnapshot(
                                                     competitionLiveController.room(session, cid),
                                                     resultController.ranking(session, cid),
-                                                    service.competitions().stream()
-                                                            .filter(c -> c.text("id").equals(cid))
+                                                    competitionManagementController.competitions().stream()
+                                                            .filter(c -> c.id().equals(cid))
                                                             .findFirst()
                                                             .orElseThrow()
-                                                            .text("status")),
+                                                            .status()),
                                     v -> {
                                         PublishedQuestionView q = v.question();
                                         if (q == null) {
@@ -2212,7 +2192,7 @@ public final class QuizWindows {
             refreshers.add(update);
             openTab(
                     "room" + cid,
-                    competition.text("name") + " · 比赛室",
+                    competition.name() + " · 比赛室",
                     page(heading, bar(info, timer), body));
             update.run();
         }

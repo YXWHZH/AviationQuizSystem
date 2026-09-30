@@ -37,6 +37,20 @@ public final class Models {
         }
     }
 
+    public record CompetitionView(
+            String id,
+            String name,
+            String description,
+            long registerStart,
+            long registerEnd,
+            long competitionTime,
+            String status,
+            int advanceCount,
+            String categories,
+            String participation,
+            String groupName,
+            String myStatus) {}
+
     public record QuestionInput(
             String content, String category, List<String> options, String answer, boolean active) {}
 

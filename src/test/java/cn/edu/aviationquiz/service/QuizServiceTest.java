@@ -193,10 +193,10 @@ class QuizServiceTest {
     void playerCompetitionListShowsParticipationAndAllowsNewRegistration() {
         Session player = player("newPlayer");
         String cid = competition(1);
-        assertEquals("未参与", service.competitionsForPlayer(player).getFirst().text("my_status"));
+        assertEquals("未参与", service.competitionsForPlayer(player).getFirst().myStatus());
         service.registrationState(staff, cid, "报名中");
         service.join(player, cid, false);
-        assertEquals("已报名", service.competitionsForPlayer(player).getFirst().text("my_status"));
+        assertEquals("已报名", service.competitionsForPlayer(player).getFirst().myStatus());
         assertThrows(IllegalArgumentException.class, () -> service.join(player, cid, false));
     }
 
@@ -206,20 +206,20 @@ class QuizServiceTest {
         String cid = competition(1);
         service.join(player, cid, true);
         service.cancelParticipation(player, cid, true);
-        assertEquals("已取消预约", service.competitionsForPlayer(player).getFirst().text("my_status"));
+        assertEquals("已取消预约", service.competitionsForPlayer(player).getFirst().myStatus());
         service.join(player, cid, true);
         assertEquals(1, count("reservation"));
-        assertEquals("已预约", service.competitionsForPlayer(player).getFirst().text("my_status"));
+        assertEquals("已预约", service.competitionsForPlayer(player).getFirst().myStatus());
 
         service.registrationState(staff, cid, "报名中");
         service.join(player, cid, false);
         assertEquals("已取消", store.transaction(db -> db.one(
                 "SELECT status FROM reservation WHERE player_id=? AND competition_id=?", player.id(), cid).text("status")));
         service.cancelParticipation(player, cid, false);
-        assertEquals("已取消报名", service.competitionsForPlayer(player).getFirst().text("my_status"));
+        assertEquals("已取消报名", service.competitionsForPlayer(player).getFirst().myStatus());
         service.join(player, cid, false);
         assertEquals(1, count("registration"));
-        assertEquals("已报名", service.competitionsForPlayer(player).getFirst().text("my_status"));
+        assertEquals("已报名", service.competitionsForPlayer(player).getFirst().myStatus());
     }
 
     @Test
@@ -431,7 +431,7 @@ class QuizServiceTest {
                 });
         assertThrows(DataAccessException.class, () -> service.archive(staff, f.cid));
         assertEquals(0, count("result"));
-        assertEquals("比赛中", service.competitions().getFirst().text("status"));
+        assertEquals("比赛中", service.competitions().getFirst().status());
         store.transaction(
                 db -> {
                     db.execute("DROP TRIGGER fail_second");

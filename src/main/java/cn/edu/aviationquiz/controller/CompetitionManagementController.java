@@ -1,9 +1,12 @@
 package cn.edu.aviationquiz.controller;
 
 import cn.edu.aviationquiz.entity.Models.CompetitionInput;
+import cn.edu.aviationquiz.entity.Models.CompetitionView;
 import cn.edu.aviationquiz.entity.Models.Session;
 import cn.edu.aviationquiz.exception.BusinessException;
 import cn.edu.aviationquiz.service.CompetitionManagementUseCases;
+
+import java.util.List;
 
 /** Handles competition-setup input before calling the management use-case interface. */
 public final class CompetitionManagementController {
@@ -11,6 +14,18 @@ public final class CompetitionManagementController {
 
     public CompetitionManagementController(CompetitionManagementUseCases service) {
         this.service = service;
+    }
+
+    public List<CompetitionView> competitions() {
+        return service.competitions();
+    }
+
+    public List<CompetitionView> competitionsForPlayer(Session session) {
+        return service.competitionsForPlayer(session);
+    }
+
+    public List<CompetitionView> participatedCompetitions(Session session) {
+        return service.participatedCompetitions(session);
     }
 
     public String save(
