@@ -1,8 +1,5 @@
 package cn.edu.aviationquiz.service;
 
-import cn.edu.aviationquiz.dao.Store;
-import cn.edu.aviationquiz.dao.Store.Row;
-import cn.edu.aviationquiz.dao.Store.UnitOfWork;
 import cn.edu.aviationquiz.entity.AccountRecord;
 import cn.edu.aviationquiz.entity.Models.*;
 import cn.edu.aviationquiz.entity.ParticipationType;
@@ -20,7 +17,6 @@ public final class QuizService
                 QuestionBankUseCases,
                 RegistrationUseCases,
                 ResultUseCases {
-    private final Store store;
     private final Clock clock;
     private final AccountManagementService accountService;
     private final CompetitionManagementService competitionManagementService;
@@ -32,7 +28,6 @@ public final class QuizService
     private final Map<String, Session> sessions = new HashMap<>();
 
     public QuizService(
-            Store store,
             Clock clock,
             AccountManagementService accountService,
             CompetitionManagementService competitionManagementService,
@@ -41,7 +36,6 @@ public final class QuizService
             QuestionBankService questionBankService,
             RegistrationManagementService registrationService,
             ResultService resultService) {
-        this.store = store;
         this.clock = clock;
         this.accountService = accountService;
         this.competitionManagementService = competitionManagementService;
@@ -151,10 +145,6 @@ public final class QuizService
     public synchronized String saveCompetition(Session s, String existing, CompetitionInput input) {
         auth(s, true);
         return competitionManagementService.save(existing, input);
-    }
-
-    private Row competition(UnitOfWork db, String cid) throws Exception {
-        return db.one("SELECT * FROM competition WHERE id=?", cid);
     }
 
     @Override
@@ -390,54 +380,15 @@ public final class QuizService
         resultService.archive(cid);
     }
 
-    public synchronized List<Row> history(Session s) {
+    @Override
+    public synchronized List<HistoryView> history(Session s) {
         signed(s);
-        return store.transaction(
-                db ->
-                        s.staff()
-                                ? db.list(
-                                        "SELECT c.name,c.id,c.competition_time FROM competition c"
-                                            + " WHERE status='已结束' ORDER BY competition_time DESC")
-                                : db.list(
-                                        "SELECT"
-                                            + " c.name,c.id,c.competition_time,r.final_score,r.ranking,CASE"
-                                            + " r.promoted WHEN 1 THEN '晋级' ELSE '未晋级' END"
-                                            + " promotion FROM result r JOIN competition c ON"
-                                            + " c.id=r.competition_id WHERE r.player_id=? ORDER BY"
-                                            + " c.competition_time DESC",
-                                        s.id()));
+        return resultService.history(s.id(), s.staff());
     }
 
     @Override
     public synchronized String exportCsv(Session s, String cid) {
         auth(s, true);
-        store.transaction(
-                db -> {
-                    require(
-                            competition(db, cid).text("status").equals("已结束"),
-                            "只能导出已归档成绩");
-                    return null;
-                });
-        StringBuilder csv =
-                new StringBuilder("\uFEFF名次,选手编号,姓名,小组,最终成绩,晋级结果\r\n");
-        for (RankingEntry r : resultService.ranking(cid))
-            csv.append(r.rank())
-                    .append(',')
-                    .append(cell(r.playerId()))
-                    .append(',')
-                    .append(cell(r.name()))
-                    .append(',')
-                    .append(cell(r.group()))
-                    .append(',')
-                    .append(r.score())
-                    .append(',')
-                    .append(cell(r.promotion()))
-                    .append("\r\n");
-        return csv.toString();
-    }
-
-    private static String cell(String value) {
-        if (!value.isEmpty() && "=+-@\t\r".indexOf(value.charAt(0)) >= 0) value = "'" + value;
-        return '"' + value.replace("\"", "\"\"") + '"';
+        return resultService.exportCsv(cid);
     }
 }

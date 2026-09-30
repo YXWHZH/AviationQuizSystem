@@ -6,6 +6,7 @@ import cn.edu.aviationquiz.dao.Store.Row;
 import cn.edu.aviationquiz.dao.Store.UnitOfWork;
 import cn.edu.aviationquiz.entity.CompetitionResultContext;
 import cn.edu.aviationquiz.entity.RankingSnapshot;
+import cn.edu.aviationquiz.entity.Models.HistoryView;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -51,6 +52,45 @@ WHERE reg.competition_id=? AND reg.status='有效'
                             competitionId);
             return new CompetitionResultContext(
                     row.text("id"), row.text("status"), (int) row.number("advance_count"));
+        }
+
+        @Override
+        public List<HistoryView> listStaffHistory() throws Exception {
+            return db.list(
+                            "SELECT c.name,c.id,c.competition_time FROM competition c WHERE"
+                                    + " status='已结束' ORDER BY competition_time DESC")
+                    .stream()
+                    .map(
+                            row ->
+                                    new HistoryView(
+                                            row.text("id"),
+                                            row.text("name"),
+                                            row.number("competition_time"),
+                                            null,
+                                            null,
+                                            ""))
+                    .toList();
+        }
+
+        @Override
+        public List<HistoryView> listPlayerHistory(String playerId) throws Exception {
+            return db.list(
+                            "SELECT c.name,c.id,c.competition_time,r.final_score,r.ranking,CASE"
+                                + " r.promoted WHEN 1 THEN '晋级' ELSE '未晋级' END promotion FROM"
+                                + " result r JOIN competition c ON c.id=r.competition_id WHERE"
+                                + " r.player_id=? ORDER BY c.competition_time DESC",
+                            playerId)
+                    .stream()
+                    .map(
+                            row ->
+                                    new HistoryView(
+                                            row.text("id"),
+                                            row.text("name"),
+                                            row.number("competition_time"),
+                                            (int) row.number("final_score"),
+                                            (int) row.number("ranking"),
+                                            row.text("promotion")))
+                    .toList();
         }
 
         @Override

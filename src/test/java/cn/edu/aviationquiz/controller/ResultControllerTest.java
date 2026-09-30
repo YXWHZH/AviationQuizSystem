@@ -3,6 +3,7 @@ package cn.edu.aviationquiz.controller;
 import static org.junit.jupiter.api.Assertions.*;
 
 import cn.edu.aviationquiz.entity.Models.RankingEntry;
+import cn.edu.aviationquiz.entity.Models.HistoryView;
 import cn.edu.aviationquiz.entity.Models.Session;
 import cn.edu.aviationquiz.exception.BusinessException;
 import cn.edu.aviationquiz.service.ResultUseCases;
@@ -33,8 +34,22 @@ class ResultControllerTest {
         assertNull(service.competitionId);
     }
 
+    @Test
+    void delegatesTypedHistoryQuery() {
+        ResultController controller = new ResultController(new FakeResultService());
+
+        assertEquals("competition-1", controller.history(STAFF).getFirst().competitionId());
+    }
+
     private static final class FakeResultService implements ResultUseCases {
         private String competitionId;
+
+        @Override
+        public List<HistoryView> history(Session session) {
+            return List.of(
+                    new HistoryView(
+                            "competition-1", "航空知识赛", 1_000, 10, 1, "晋级"));
+        }
 
         @Override
         public List<RankingEntry> ranking(Session session, String competitionId) {

@@ -2,6 +2,7 @@ package cn.edu.aviationquiz.dao;
 
 import cn.edu.aviationquiz.entity.CompetitionResultContext;
 import cn.edu.aviationquiz.entity.RankingSnapshot;
+import cn.edu.aviationquiz.entity.Models.HistoryView;
 
 import java.util.List;
 
@@ -16,6 +17,10 @@ public interface ResultDao {
 
     interface Transaction {
         CompetitionResultContext findCompetition(String competitionId) throws Exception;
+
+        List<HistoryView> listStaffHistory() throws Exception;
+
+        List<HistoryView> listPlayerHistory(String playerId) throws Exception;
 
         boolean hasUnfinishedRounds(String competitionId) throws Exception;
 

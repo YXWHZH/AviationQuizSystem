@@ -159,7 +159,6 @@ class QuizWindowsTest {
         RoundFactory roundFactory = new StandardRoundFactory();
         QuizService service =
                 new QuizService(
-                        store,
                         clock,
                         new AccountManagementServiceImpl(new JdbcAccountDao(store)),
                         new CompetitionManagementServiceImpl(

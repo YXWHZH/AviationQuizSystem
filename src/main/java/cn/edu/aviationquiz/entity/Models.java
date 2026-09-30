@@ -115,6 +115,14 @@ public final class Models {
             int rank,
             String promotion) {}
 
+    public record HistoryView(
+            String competitionId,
+            String competitionName,
+            long competitionTime,
+            Integer finalScore,
+            Integer rank,
+            String promotion) {}
+
     public record PublishedQuestionView(
             String releaseId,
             String roundName,

@@ -1244,21 +1244,23 @@ public final class QuizWindows {
         }
 
         Node historyPage() {
-            TableView<Row> t =
+            TableView<HistoryView> t =
                     session.staff()
-                            ? table("竞赛", "name", "比赛时间", "competition_time")
-                            : table(
-                                    "竞赛",
-                                    "name",
-                                    "比赛时间",
-                                    "competition_time",
-                                    "最终成绩",
-                                    "final_score",
-                                    "名次",
-                                    "ranking",
-                                    "晋级",
-                                    "promotion");
-            Runnable refresh = () -> read(() -> service.history(session), v -> rows(t, v), status);
+                            ? typedTable(
+                                    column("竞赛", HistoryView::competitionName, 200),
+                                    column("比赛时间", h -> date(h.competitionTime()), 180))
+                            : typedTable(
+                                    column("竞赛", HistoryView::competitionName, 200),
+                                    column("比赛时间", h -> date(h.competitionTime()), 180),
+                                    column("最终成绩", h -> String.valueOf(h.finalScore()), 120),
+                                    column("名次", h -> String.valueOf(h.rank()), 100),
+                                    column("晋级", HistoryView::promotion, 120));
+            Runnable refresh =
+                    () ->
+                            read(
+                                    () -> resultController.history(session),
+                                    v -> typedRows(t, v, HistoryView::competitionId),
+                                    status);
             refreshers.add(refresh);
             Button view =
                     button(
@@ -1268,13 +1270,13 @@ public final class QuizWindows {
                                             status,
                                             () ->
                                                     rankingTab(
-                                                            selected(t).text("id"),
-                                                            selected(t).text("name"))));
+                                                            selected(t).competitionId(),
+                                                            selected(t).competitionName())));
             Node exportAction =
                     session.staff()
                             ? button(
                                     "导出 CSV",
-                                    () -> safe(status, () -> export(selected(t).text("id"))))
+                                    () -> safe(status, () -> export(selected(t).competitionId())))
                             : label("历史成绩以最终归档结果为准");
             return page(bar(button("刷新", refresh), view), exportAction, t);
         }

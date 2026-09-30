@@ -143,7 +143,6 @@ class QuizServiceTest {
     private static QuizService service(Store store, Clock clock) {
         RoundFactory roundFactory = new StandardRoundFactory();
         return new QuizService(
-                store,
                 clock,
                 new AccountManagementServiceImpl(new JdbcAccountDao(store)),
                 new CompetitionManagementServiceImpl(new JdbcCompetitionDao(store), clock),

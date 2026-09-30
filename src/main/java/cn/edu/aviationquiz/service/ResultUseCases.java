@@ -1,12 +1,15 @@
 package cn.edu.aviationquiz.service;
 
 import cn.edu.aviationquiz.entity.Models.RankingEntry;
+import cn.edu.aviationquiz.entity.Models.HistoryView;
 import cn.edu.aviationquiz.entity.Models.Session;
 
 import java.util.List;
 
 /** Authenticated result operations exposed to the result controller. */
 public interface ResultUseCases {
+    List<HistoryView> history(Session session);
+
     List<RankingEntry> ranking(Session session, String competitionId);
 
     List<RankingEntry> preview(Session session, String competitionId);

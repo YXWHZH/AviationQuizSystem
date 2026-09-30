@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import cn.edu.aviationquiz.dao.ResultDao;
 import cn.edu.aviationquiz.entity.CompetitionResultContext;
 import cn.edu.aviationquiz.entity.RankingSnapshot;
+import cn.edu.aviationquiz.entity.Models.HistoryView;
 import cn.edu.aviationquiz.exception.BusinessException;
 import cn.edu.aviationquiz.service.impl.ResultServiceImpl;
 
@@ -57,6 +58,20 @@ class ResultServiceTest {
         assertEquals(1, dao.transactions);
     }
 
+    @Test
+    void exportsOnlyArchivedCompetitionResults() {
+        FakeResultDao dao = new FakeResultDao();
+        ResultService service = new ResultServiceImpl(dao);
+
+        assertThrows(BusinessException.class, () -> service.exportCsv("competition-1"));
+
+        dao.context = new CompetitionResultContext("competition-1", "已结束", 1);
+        dao.rows = List.of(new RankingSnapshot("=P01", "张三", "A组", 0, 2, 600, 30, 1, true));
+        String csv = service.exportCsv("competition-1");
+        assertTrue(csv.startsWith("\uFEFF名次"));
+        assertTrue(csv.contains("\"'=P01\""));
+    }
+
     private static RankingSnapshot row(String id, int score, int correct, long elapsed) {
         return new RankingSnapshot(id, id, "A组", score, correct, elapsed, 0, 0, false);
     }
@@ -85,6 +100,16 @@ class ResultServiceTest {
         @Override
         public CompetitionResultContext findCompetition(String competitionId) {
             return context;
+        }
+
+        @Override
+        public List<HistoryView> listStaffHistory() {
+            return List.of();
+        }
+
+        @Override
+        public List<HistoryView> listPlayerHistory(String playerId) {
+            return List.of();
         }
 
         @Override

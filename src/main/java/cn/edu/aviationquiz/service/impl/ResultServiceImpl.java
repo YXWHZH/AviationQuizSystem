@@ -3,6 +3,7 @@ package cn.edu.aviationquiz.service.impl;
 import cn.edu.aviationquiz.dao.ResultDao;
 import cn.edu.aviationquiz.entity.CompetitionResultContext;
 import cn.edu.aviationquiz.entity.Models.RankingEntry;
+import cn.edu.aviationquiz.entity.Models.HistoryView;
 import cn.edu.aviationquiz.entity.RankingSnapshot;
 import cn.edu.aviationquiz.exception.BusinessException;
 import cn.edu.aviationquiz.service.ResultService;
@@ -18,6 +19,12 @@ public final class ResultServiceImpl implements ResultService {
 
     public ResultServiceImpl(ResultDao resultDao) {
         this.resultDao = resultDao;
+    }
+
+    @Override
+    public List<HistoryView> history(String playerId, boolean staff) {
+        return resultDao.inTransaction(
+                db -> staff ? db.listStaffHistory() : db.listPlayerHistory(playerId));
     }
 
     @Override
@@ -57,6 +64,32 @@ public final class ResultServiceImpl implements ResultService {
                                 entry.rank() <= competition.advanceCount());
                     db.markCompetitionArchived(competitionId);
                     return null;
+                });
+    }
+
+    @Override
+    public String exportCsv(String competitionId) {
+        return resultDao.inTransaction(
+                db -> {
+                    CompetitionResultContext competition = db.findCompetition(competitionId);
+                    require(competition.status().equals("已结束"), "只能导出已归档成绩");
+                    StringBuilder csv =
+                            new StringBuilder(
+                                    "\uFEFF名次,选手编号,姓名,小组,最终成绩,晋级结果\r\n");
+                    for (RankingEntry entry : calculate(db, competition, false))
+                        csv.append(entry.rank())
+                                .append(',')
+                                .append(cell(entry.playerId()))
+                                .append(',')
+                                .append(cell(entry.name()))
+                                .append(',')
+                                .append(cell(entry.group()))
+                                .append(',')
+                                .append(entry.score())
+                                .append(',')
+                                .append(cell(entry.promotion()))
+                                .append("\r\n");
+                    return csv.toString();
                 });
     }
 
@@ -106,6 +139,11 @@ public final class ResultServiceImpl implements ResultService {
 
     private static void require(boolean valid, String message) {
         if (!valid) throw new BusinessException(message);
+    }
+
+    private static String cell(String value) {
+        if (!value.isEmpty() && "=+-@\t\r".indexOf(value.charAt(0)) >= 0) value = "'" + value;
+        return '"' + value.replace("\"", "\"\"") + '"';
     }
 
     private static String id() {

@@ -1,6 +1,7 @@
 package cn.edu.aviationquiz.controller;
 
 import cn.edu.aviationquiz.entity.Models.RankingEntry;
+import cn.edu.aviationquiz.entity.Models.HistoryView;
 import cn.edu.aviationquiz.entity.Models.Session;
 import cn.edu.aviationquiz.exception.BusinessException;
 import cn.edu.aviationquiz.service.ResultUseCases;
@@ -13,6 +14,10 @@ public final class ResultController {
 
     public ResultController(ResultUseCases service) {
         this.service = service;
+    }
+
+    public List<HistoryView> history(Session session) {
+        return service.history(session);
     }
 
     public List<RankingEntry> ranking(Session session, String competitionId) {
