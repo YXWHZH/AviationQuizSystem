@@ -2,6 +2,9 @@ package cn.edu.aviationquiz.service.impl;
 
 import cn.edu.aviationquiz.dao.QuestionBankDao;
 import cn.edu.aviationquiz.entity.Models.QuestionInput;
+import cn.edu.aviationquiz.entity.Models.QuestionView;
+import cn.edu.aviationquiz.entity.Models.RoundQuestionView;
+import cn.edu.aviationquiz.entity.Models.RoundView;
 import cn.edu.aviationquiz.exception.BusinessException;
 import cn.edu.aviationquiz.service.QuestionBankService;
 import cn.edu.aviationquiz.service.RoundFactory;
@@ -21,6 +24,27 @@ public final class QuestionBankServiceImpl implements QuestionBankService {
             QuestionBankDao questionBankDao, RoundFactory roundFactory) {
         this.questionBankDao = questionBankDao;
         this.roundFactory = roundFactory;
+    }
+
+    @Override
+    public List<QuestionView> questions() {
+        return questionBankDao.inTransaction(QuestionBankDao.Transaction::listQuestions);
+    }
+
+    @Override
+    public List<QuestionView> questionsForCompetition(String competitionId) {
+        return questionBankDao.inTransaction(
+                db -> db.listQuestionsForCompetition(competitionId));
+    }
+
+    @Override
+    public List<RoundView> rounds(String competitionId) {
+        return questionBankDao.inTransaction(db -> db.listRounds(competitionId));
+    }
+
+    @Override
+    public List<RoundQuestionView> roundQuestions(String roundId) {
+        return questionBankDao.inTransaction(db -> db.listRoundQuestions(roundId));
     }
 
     @Override

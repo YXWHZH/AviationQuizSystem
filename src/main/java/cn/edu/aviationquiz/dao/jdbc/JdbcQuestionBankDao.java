@@ -2,8 +2,14 @@ package cn.edu.aviationquiz.dao.jdbc;
 
 import cn.edu.aviationquiz.dao.QuestionBankDao;
 import cn.edu.aviationquiz.dao.Store;
+import cn.edu.aviationquiz.dao.Store.Row;
 import cn.edu.aviationquiz.dao.Store.UnitOfWork;
 import cn.edu.aviationquiz.entity.Models.QuestionInput;
+import cn.edu.aviationquiz.entity.Models.QuestionView;
+import cn.edu.aviationquiz.entity.Models.RoundQuestionView;
+import cn.edu.aviationquiz.entity.Models.RoundView;
+
+import java.util.List;
 
 /** SQLite implementation of question-bank and round-list persistence. */
 public final class JdbcQuestionBankDao implements QuestionBankDao {
@@ -23,6 +29,56 @@ public final class JdbcQuestionBankDao implements QuestionBankDao {
 
         private JdbcTransaction(UnitOfWork db) {
             this.db = db;
+        }
+
+        @Override
+        public List<QuestionView> listQuestions() throws Exception {
+            return db.list("SELECT * FROM question ORDER BY id").stream()
+                    .map(JdbcTransaction::question)
+                    .toList();
+        }
+
+        @Override
+        public List<QuestionView> listQuestionsForCompetition(String competitionId)
+                throws Exception {
+            return db.list(
+                            "SELECT q.* FROM question q WHERE EXISTS(SELECT 1 FROM competition_category cc WHERE cc.competition_id=? AND cc.category=q.category) ORDER BY q.category,q.id",
+                            competitionId)
+                    .stream()
+                    .map(JdbcTransaction::question)
+                    .toList();
+        }
+
+        @Override
+        public List<RoundView> listRounds(String competitionId) throws Exception {
+            return db.list(
+                            "SELECT * FROM competition_round WHERE competition_id=? ORDER BY sequence_no",
+                            competitionId)
+                    .stream()
+                    .map(
+                            row ->
+                                    new RoundView(
+                                            row.text("id"),
+                                            row.text("name"),
+                                            row.text("round_type"),
+                                            (int) row.number("sequence_no"),
+                                            (int) row.number("time_limit")))
+                    .toList();
+        }
+
+        @Override
+        public List<RoundQuestionView> listRoundQuestions(String roundId) throws Exception {
+            return db.list(
+                            "SELECT rq.id,rq.sequence_no,q.content FROM round_question rq JOIN question q ON q.id=rq.question_id WHERE rq.round_id=? ORDER BY rq.sequence_no",
+                            roundId)
+                    .stream()
+                    .map(
+                            row ->
+                                    new RoundQuestionView(
+                                            row.text("id"),
+                                            (int) row.number("sequence_no"),
+                                            row.text("content")))
+                    .toList();
         }
 
         @Override
@@ -181,6 +237,20 @@ public final class JdbcQuestionBankDao implements QuestionBankDao {
         @Override
         public void deleteRoundQuestion(String roundQuestionId) throws Exception {
             db.execute("DELETE FROM round_question WHERE id=?", roundQuestionId);
+        }
+
+        private static QuestionView question(Row row) {
+            return new QuestionView(
+                    row.text("id"),
+                    row.text("content"),
+                    row.text("category"),
+                    List.of(
+                            row.text("option_a"),
+                            row.text("option_b"),
+                            row.text("option_c"),
+                            row.text("option_d")),
+                    row.text("correct_answer"),
+                    row.number("active") == 1);
         }
     }
 }

@@ -7,6 +7,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import cn.edu.aviationquiz.dao.QuestionBankDao;
 import cn.edu.aviationquiz.entity.Models.QuestionInput;
+import cn.edu.aviationquiz.entity.Models.QuestionView;
+import cn.edu.aviationquiz.entity.Models.RoundQuestionView;
+import cn.edu.aviationquiz.entity.Models.RoundView;
 import cn.edu.aviationquiz.exception.BusinessException;
 import cn.edu.aviationquiz.service.impl.QuestionBankServiceImpl;
 import cn.edu.aviationquiz.service.impl.StandardRoundFactory;
@@ -34,6 +37,23 @@ class QuestionBankServiceTest {
         assertNotNull(questionId);
         assertEquals("中国民航史第一题", dao.insertedQuestion.content());
         assertEquals("A1", dao.insertedQuestion.options().getFirst());
+    }
+
+    @Test
+    void returnsTypedQuestionViewsFromTheDaoContract() {
+        FakeQuestionBankDao dao = new FakeQuestionBankDao();
+        dao.questions =
+                List.of(
+                        new QuestionView(
+                                "Q1",
+                                "题目",
+                                "民航史",
+                                List.of("A", "B", "C", "D"),
+                                "A",
+                                true));
+        QuestionBankService service = service(dao);
+
+        assertEquals("Q1", service.questions().getFirst().id());
     }
 
     @Test
@@ -89,6 +109,7 @@ class QuestionBankServiceTest {
         private String insertedRoundName;
         private String insertedRoundType;
         private String insertedRoundQuestionId;
+        private List<QuestionView> questions = List.of();
 
         @Override
         public <T> T inTransaction(Work<T> work) {
@@ -99,6 +120,26 @@ class QuestionBankServiceTest {
             } catch (Exception exception) {
                 throw new IllegalStateException(exception);
             }
+        }
+
+        @Override
+        public List<QuestionView> listQuestions() {
+            return questions;
+        }
+
+        @Override
+        public List<QuestionView> listQuestionsForCompetition(String competitionId) {
+            return questions;
+        }
+
+        @Override
+        public List<RoundView> listRounds(String competitionId) {
+            return List.of();
+        }
+
+        @Override
+        public List<RoundQuestionView> listRoundQuestions(String roundId) {
+            return List.of();
         }
 
         @Override

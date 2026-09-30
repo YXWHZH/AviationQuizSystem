@@ -1,6 +1,11 @@
 package cn.edu.aviationquiz.dao;
 
 import cn.edu.aviationquiz.entity.Models.QuestionInput;
+import cn.edu.aviationquiz.entity.Models.QuestionView;
+import cn.edu.aviationquiz.entity.Models.RoundQuestionView;
+import cn.edu.aviationquiz.entity.Models.RoundView;
+
+import java.util.List;
 
 /** Data-access contract for questions, competition rounds and round question lists. */
 public interface QuestionBankDao {
@@ -12,6 +17,14 @@ public interface QuestionBankDao {
     }
 
     interface Transaction {
+        List<QuestionView> listQuestions() throws Exception;
+
+        List<QuestionView> listQuestionsForCompetition(String competitionId) throws Exception;
+
+        List<RoundView> listRounds(String competitionId) throws Exception;
+
+        List<RoundQuestionView> listRoundQuestions(String roundId) throws Exception;
+
         String findCompetitionStatus(String competitionId) throws Exception;
 
         String findRoundCompetitionId(String roundId) throws Exception;

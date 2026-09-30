@@ -227,10 +227,40 @@ public final class QuizWindows {
                 .ifPresent(r -> table.getSelectionModel().select(r));
     }
 
-    private Row selected(TableView<Row> table) {
-        Row row = table.getSelectionModel().getSelectedItem();
-        if (row == null) throw new IllegalArgumentException("请先选择一条记录");
-        return row;
+    private static <T> TableColumn<T, String> column(
+            String heading, Function<T, String> value, double width) {
+        TableColumn<T, String> column = new TableColumn<>(heading);
+        column.setCellValueFactory(row -> new ReadOnlyStringWrapper(value.apply(row.getValue())));
+        column.setPrefWidth(width);
+        return column;
+    }
+
+    @SafeVarargs
+    private static <T> TableView<T> typedTable(TableColumn<T, String>... columns) {
+        TableView<T> table = new TableView<>();
+        table.setPlaceholder(label("暂无记录"));
+        table.getColumns().addAll(columns);
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+        VBox.setVgrow(table, Priority.ALWAYS);
+        return table;
+    }
+
+    private static <T> void typedRows(
+            TableView<T> table, List<T> values, Function<T, String> id) {
+        T selected = table.getSelectionModel().getSelectedItem();
+        String selectedId = selected == null ? "" : id.apply(selected);
+        if (table.getItems().equals(values)) return;
+        table.getItems().setAll(values);
+        values.stream()
+                .filter(value -> id.apply(value).equals(selectedId))
+                .findFirst()
+                .ifPresent(value -> table.getSelectionModel().select(value));
+    }
+
+    private <T> T selected(TableView<T> table) {
+        T value = table.getSelectionModel().getSelectedItem();
+        if (value == null) throw new IllegalArgumentException("请先选择一条记录");
+        return value;
     }
 
     private void safe(Label status, Runnable call) {
@@ -1116,37 +1146,33 @@ public final class QuizWindows {
         }
 
         Node questionPage() {
-            TableView<Row> table =
-                    table(
-                            "分类",
-                            "category",
-                            "题干",
-                            "content",
-                            "标准答案",
-                            "correct_answer",
-                            "启用（1/0）",
-                            "active");
+            TableView<QuestionView> table =
+                    typedTable(
+                            column("分类", QuestionView::category, 160),
+                            column("题干", QuestionView::content, 380),
+                            column("标准答案", QuestionView::answer, 160),
+                            column("启用（1/0）", q -> q.active() ? "1" : "0", 160));
             TextField search = new TextField();
             search.setPromptText("按题干或分类查询");
             Runnable refresh =
                     () -> {
                         String query = search.getText().trim();
                         read(
-                                () -> service.questions(session),
+                                () -> questionBankController.questions(session),
                                 list ->
-                                        rows(
+                                        typedRows(
                                                 table,
                                                 list.stream()
                                                         .filter(
                                                                 q ->
-                                                                        q.text("content")
+                                                                        q.content()
                                                                                         .contains(
                                                                                                 query)
-                                                                                || q.text(
-                                                                                                "category")
+                                                                                || q.category()
                                                                                         .contains(
                                                                                                 query))
-                                                        .toList()),
+                                                        .toList(),
+                                                QuestionView::id),
                                 status);
                     };
             refreshers.add(refresh);
@@ -1167,15 +1193,14 @@ public final class QuizWindows {
                                             safe(
                                                     status,
                                                     () -> {
-                                                        Row q = selected(table);
+                                                        QuestionView q = selected(table);
                                                         action(
                                                                 status,
                                                                 () ->
                                                                         questionBankController.setQuestionActive(
                                                                                 session,
-                                                                                q.text("id"),
-                                                                                q.number("active")
-                                                                                        == 0));
+                                                                                q.id(),
+                                                                                !q.active()));
                                                     })),
                             button(
                                     "删除",
@@ -1183,38 +1208,38 @@ public final class QuizWindows {
                                             safe(
                                                     status,
                                                     () -> {
-                                                        Row q = selected(table);
+                                                        QuestionView q = selected(table);
                                                         if (confirm(stage, "删除所选未引用题目？"))
                                                             action(
                                                                     status,
                                                                     () ->
                                                                             questionBankController.deleteQuestion(
                                                                                     session,
-                                                                                    q.text("id")));
+                                                                                    q.id()));
                                                     }))),
                     table);
         }
 
-        void questionForm(Row q, boolean copy) {
+        void questionForm(QuestionView q, boolean copy) {
             Form f = new Form(stage, q == null ? "新增题目" : copy ? "复制为新题" : "编辑题目");
-            TextArea content = f.field("题干", new TextArea(q == null ? "" : q.text("content")));
+            TextArea content = f.field("题干", new TextArea(q == null ? "" : q.content()));
             content.setPrefRowCount(3);
             ComboBox<String> category =
                     f.choice(
                             "分类",
                             List.of("民航史", "飞行原理", "航空法规"),
-                            q == null ? "民航史" : q.text("category"));
+                            q == null ? "民航史" : q.category());
             List<TextField> options = new ArrayList<>();
-            for (String key : List.of("a", "b", "c", "d"))
+            for (int i = 0; i < 4; i++)
                 options.add(
                         f.text(
-                                "选项 " + key.toUpperCase(),
-                                q == null ? "" : q.text("option_" + key)));
+                                "选项 " + (char) ('A' + i),
+                                q == null ? "" : q.options().get(i)));
             ComboBox<String> answer =
                     f.choice(
                             "标准答案",
                             List.of("A", "B", "C", "D"),
-                            q == null ? "A" : q.text("correct_answer"));
+                            q == null ? "A" : q.answer());
             f.save(
                     "保存",
                     () -> {
@@ -1224,12 +1249,12 @@ public final class QuizWindows {
                                         category.getValue(),
                                         options.stream().map(TextField::getText).toList(),
                                         answer.getValue(),
-                                        q == null || copy || q.number("active") == 1);
+                                        q == null || copy || q.active());
                         return (Callable<String>)
                                 () ->
                                         questionBankController.saveQuestion(
                                                 session,
-                                                q == null || copy ? null : q.text("id"),
+                                                q == null || copy ? null : q.id(),
                                                 input);
                     },
                     () -> {});
@@ -1526,32 +1551,45 @@ public final class QuizWindows {
         }
 
         Node roundPage(String cid) {
-            TableView<Row>
+            TableView<RoundView>
                     rounds =
-                            table(
-                                    "轮次",
-                                    "name",
-                                    "类型",
-                                    "round_type",
-                                    "顺序",
-                                    "sequence_no",
-                                    "时限（秒）",
-                                    "time_limit"),
-                    questions = table("题序", "sequence_no", "题干", "content");
+                            typedTable(
+                                    column("轮次", RoundView::name, 180),
+                                    column("类型", RoundView::type, 140),
+                                    column("顺序", r -> Integer.toString(r.sequence()), 100),
+                                    column(
+                                            "时限（秒）",
+                                            r -> Integer.toString(r.timeLimitSeconds()),
+                                            120));
+            TableView<RoundQuestionView> questions =
+                    typedTable(
+                            column(
+                                    "题序",
+                                    q -> Integer.toString(q.sequence()),
+                                    100),
+                            column("题干", RoundQuestionView::content, 420));
             Runnable update =
-                    () -> read(() -> service.rounds(session, cid), v -> rows(rounds, v), status);
+                    () ->
+                            read(
+                                    () -> questionBankController.rounds(session, cid),
+                                    v -> typedRows(rounds, v, RoundView::id),
+                                    status);
             refreshers.add(update);
             Runnable questionUpdate =
                     () -> {
-                        Row r = rounds.getSelectionModel().getSelectedItem();
+                        RoundView r = rounds.getSelectionModel().getSelectedItem();
                         if (r != null) {
-                            String rid = r.text("id");
+                            String rid = r.id();
                             read(
-                                    () -> service.roundQuestions(session, rid),
+                                    () -> questionBankController.roundQuestions(session, rid),
                                     v -> {
-                                        Row current = rounds.getSelectionModel().getSelectedItem();
-                                        if (current != null && rid.equals(current.text("id")))
-                                            rows(questions, v);
+                                        RoundView current =
+                                                rounds.getSelectionModel().getSelectedItem();
+                                        if (current != null && rid.equals(current.id()))
+                                            typedRows(
+                                                    questions,
+                                                    v,
+                                                    RoundQuestionView::id);
                                     },
                                     status);
                         } else questions.getItems().clear();
@@ -1597,22 +1635,23 @@ public final class QuizWindows {
                                     safe(
                                             status,
                                             () -> {
-                                                String rid = selected(rounds).text("id");
+                                                String rid = selected(rounds).id();
                                                 Form f = new Form(stage, "为轮次添加题目");
-                                                ComboBox<Row> q = f.field("启用题目", new ComboBox<>());
+                                                ComboBox<QuestionView> q =
+                                                        f.field("启用题目", new ComboBox<>());
                                                 q.setPrefWidth(380);
                                                 read(
-                                                        () -> service.questionsForCompetition(session, cid),
+                                                        () ->
+                                                                questionBankController
+                                                                        .questionsForCompetition(
+                                                                                session, cid),
                                                         list ->
                                                                 q.getItems()
                                                                         .setAll(
                                                                                 list.stream()
                                                                                         .filter(
                                                                                                 v ->
-                                                                                                        v
-                                                                                                                        .number(
-                                                                                                                                "active")
-                                                                                                                == 1)
+                                                                                                        v.active())
                                                                                         .toList()),
                                                         f.status);
                                                 TextField seq = f.text("题序", "1");
@@ -1622,7 +1661,7 @@ public final class QuizWindows {
                                                             if (q.getValue() == null)
                                                                 throw new IllegalArgumentException(
                                                                         "请选择题目");
-                                                            String qid = q.getValue().text("id");
+                                                            String qid = q.getValue().id();
                                                             int order =
                                                                     Integer.parseInt(seq.getText());
                                                             return (Callable<Void>)
@@ -1645,7 +1684,7 @@ public final class QuizWindows {
                                             safe(
                                                     status,
                                                     () -> {
-                                                        String rid = selected(rounds).text("id");
+                                                        String rid = selected(rounds).id();
                                                         if (confirm(stage, "删除选中的空轮次？"))
                                                             action(
                                                                     status,
@@ -1662,7 +1701,7 @@ public final class QuizWindows {
                                             safe(
                                                     status,
                                                     () -> {
-                                                        String rq = selected(questions).text("id");
+                                                        String rq = selected(questions).id();
                                                         action(
                                                                 status,
                                                                 () ->
@@ -1674,16 +1713,19 @@ public final class QuizWindows {
                     questions);
         }
 
-        void editRound(Row round) {
+        void editRound(RoundView round) {
             Form f = new Form(stage, "编辑轮次");
-            TextField name = f.text("轮次名称", round.text("name")),
-                    seq = f.text("轮次顺序", round.text("sequence_no")),
-                    seconds = f.text("每题时限（秒）", round.text("time_limit"));
+            TextField name = f.text("轮次名称", round.name()),
+                    seq = f.text("轮次顺序", Integer.toString(round.sequence())),
+                    seconds =
+                            f.text(
+                                    "每题时限（秒）",
+                                    Integer.toString(round.timeLimitSeconds()));
             ComboBox<String> type =
                     f.choice(
                             "类型",
                             List.of("必答", "抢答", "风险"),
-                            switch (round.text("round_type")) {
+                            switch (round.type()) {
                                 case "REQUIRED" -> "必答";
                                 case "BUZZER" -> "抢答";
                                 default -> "风险";
@@ -1703,7 +1745,7 @@ public final class QuizWindows {
                         return (Callable<Void>)
                                 () -> {
                                     questionBankController.updateRound(
-                                            session, round.text("id"), n, t, order, limit);
+                                            session, round.id(), n, t, order, limit);
                                     return null;
                                 };
                     },
@@ -1798,7 +1840,7 @@ public final class QuizWindows {
                     Row release,
                     List<Row> monitor,
                     List<RankingEntry> ranks,
-                    List<Row> questions,
+                    List<RoundQuestionView> questions,
                     int completed) {}
             Runnable update =
                     () ->
@@ -1810,10 +1852,10 @@ public final class QuizWindows {
                                                         .findFirst()
                                                         .orElseThrow();
                                         Row gr = service.progress(session, cid);
-                                        List<Row> qs =
+                                        List<RoundQuestionView> qs =
                                                 gr == null
                                                         ? List.of()
-                                                        : service.roundQuestions(
+                                                        : questionBankController.roundQuestions(
                                                                 session, gr.text("round_id"));
                                         return new ControlSnapshot(
                                                 c,

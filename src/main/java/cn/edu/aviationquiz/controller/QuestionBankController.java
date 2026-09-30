@@ -1,9 +1,14 @@
 package cn.edu.aviationquiz.controller;
 
 import cn.edu.aviationquiz.entity.Models.QuestionInput;
+import cn.edu.aviationquiz.entity.Models.QuestionView;
+import cn.edu.aviationquiz.entity.Models.RoundQuestionView;
+import cn.edu.aviationquiz.entity.Models.RoundView;
 import cn.edu.aviationquiz.entity.Models.Session;
 import cn.edu.aviationquiz.exception.BusinessException;
 import cn.edu.aviationquiz.service.QuestionBankUseCases;
+
+import java.util.List;
 
 /** Handles question-bank and round-list input before invoking use cases. */
 public final class QuestionBankController {
@@ -11,6 +16,26 @@ public final class QuestionBankController {
 
     public QuestionBankController(QuestionBankUseCases service) {
         this.service = service;
+    }
+
+    public List<QuestionView> questions(Session session) {
+        return service.questions(session);
+    }
+
+    public List<QuestionView> questionsForCompetition(
+            Session session, String competitionId) {
+        requireId(competitionId, "请先选择竞赛");
+        return service.questionsForCompetition(session, competitionId);
+    }
+
+    public List<RoundView> rounds(Session session, String competitionId) {
+        requireId(competitionId, "请先选择竞赛");
+        return service.rounds(session, competitionId);
+    }
+
+    public List<RoundQuestionView> roundQuestions(Session session, String roundId) {
+        requireId(roundId, "请先选择轮次");
+        return service.roundQuestions(session, roundId);
     }
 
     public String saveQuestion(

@@ -40,6 +40,24 @@ public final class Models {
     public record QuestionInput(
             String content, String category, List<String> options, String answer, boolean active) {}
 
+    public record QuestionView(
+            String id,
+            String content,
+            String category,
+            List<String> options,
+            String answer,
+            boolean active) {
+        @Override
+        public String toString() {
+            return content;
+        }
+    }
+
+    public record RoundView(
+            String id, String name, String type, int sequence, int timeLimitSeconds) {}
+
+    public record RoundQuestionView(String id, int sequence, String content) {}
+
     public record RankingEntry(
             String playerId,
             String name,

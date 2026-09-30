@@ -295,14 +295,16 @@ WHERE r.id IS NOT NULL OR v.id IS NOT NULL ORDER BY c.competition_time DESC
         questionBankService.deleteEmptyRound(rid);
     }
 
-    public synchronized List<Row> questions(Session s) {
+    @Override
+    public synchronized List<QuestionView> questions(Session s) {
         auth(s, true);
-        return store.transaction(db -> db.list("SELECT * FROM question ORDER BY id"));
+        return questionBankService.questions();
     }
 
-    public synchronized List<Row> questionsForCompetition(Session s, String cid) {
+    @Override
+    public synchronized List<QuestionView> questionsForCompetition(Session s, String cid) {
         auth(s, true);
-        return store.transaction(db -> db.list("SELECT q.* FROM question q WHERE EXISTS(SELECT 1 FROM competition_category cc WHERE cc.competition_id=? AND cc.category=q.category) ORDER BY q.category,q.id", cid));
+        return questionBankService.questionsForCompetition(cid);
     }
 
     @Override
@@ -323,14 +325,10 @@ WHERE r.id IS NOT NULL OR v.id IS NOT NULL ORDER BY c.competition_time DESC
         questionBankService.deleteQuestion(qid);
     }
 
-    public synchronized List<Row> rounds(Session s, String cid) {
+    @Override
+    public synchronized List<RoundView> rounds(Session s, String cid) {
         auth(s, true);
-        return store.transaction(
-                db ->
-                        db.list(
-                                "SELECT * FROM competition_round WHERE competition_id=? ORDER BY"
-                                        + " sequence_no",
-                                cid));
+        return questionBankService.rounds(cid);
     }
 
     @Override
@@ -340,15 +338,10 @@ WHERE r.id IS NOT NULL OR v.id IS NOT NULL ORDER BY c.competition_time DESC
         return questionBankService.addRound(cid, name, type, sequence, seconds);
     }
 
-    public synchronized List<Row> roundQuestions(Session s, String rid) {
+    @Override
+    public synchronized List<RoundQuestionView> roundQuestions(Session s, String rid) {
         auth(s, true);
-        return store.transaction(
-                db ->
-                        db.list(
-                                "SELECT rq.id,rq.sequence_no,q.content FROM round_question rq JOIN"
-                                    + " question q ON q.id=rq.question_id WHERE rq.round_id=? ORDER"
-                                    + " BY rq.sequence_no",
-                                rid));
+        return questionBankService.roundQuestions(rid);
     }
 
     @Override

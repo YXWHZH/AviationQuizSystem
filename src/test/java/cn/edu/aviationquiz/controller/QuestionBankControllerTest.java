@@ -5,6 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import cn.edu.aviationquiz.entity.Models.QuestionInput;
+import cn.edu.aviationquiz.entity.Models.QuestionView;
+import cn.edu.aviationquiz.entity.Models.RoundQuestionView;
+import cn.edu.aviationquiz.entity.Models.RoundView;
 import cn.edu.aviationquiz.entity.Models.Session;
 import cn.edu.aviationquiz.exception.BusinessException;
 import cn.edu.aviationquiz.service.QuestionBankUseCases;
@@ -34,6 +37,14 @@ class QuestionBankControllerTest {
     }
 
     @Test
+    void delegatesTypedQuestionQueriesToTheUseCaseInterface() {
+        FakeQuestionBank service = new FakeQuestionBank();
+        QuestionBankController controller = new QuestionBankController(service);
+
+        assertEquals("question-1", controller.questions(STAFF).getFirst().id());
+    }
+
+    @Test
     void rejectsAMissingRoundBeforeAddingAQuestion() {
         FakeQuestionBank service = new FakeQuestionBank();
         QuestionBankController controller = new QuestionBankController(service);
@@ -58,6 +69,34 @@ class QuestionBankControllerTest {
         private QuestionInput question;
         private String competitionId;
         private String roundId;
+
+        @Override
+        public List<QuestionView> questions(Session session) {
+            return List.of(
+                    new QuestionView(
+                            "question-1",
+                            QUESTION.content(),
+                            QUESTION.category(),
+                            QUESTION.options(),
+                            QUESTION.answer(),
+                            QUESTION.active()));
+        }
+
+        @Override
+        public List<QuestionView> questionsForCompetition(
+                Session session, String competitionId) {
+            return questions(session);
+        }
+
+        @Override
+        public List<RoundView> rounds(Session session, String competitionId) {
+            return List.of();
+        }
+
+        @Override
+        public List<RoundQuestionView> roundQuestions(Session session, String roundId) {
+            return List.of();
+        }
 
         @Override
         public String saveQuestion(
