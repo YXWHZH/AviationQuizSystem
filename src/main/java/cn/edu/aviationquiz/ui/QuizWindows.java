@@ -162,6 +162,10 @@ public final class QuizWindows {
     }
 
     private void scene(Stage stage, String name, Parent root) {
+        boolean showing = stage.isShowing();
+        boolean maximized = stage.isMaximized();
+        double currentWidth = stage.getWidth();
+        double currentHeight = stage.getHeight();
         Scene scene = new Scene(root);
         scene.getStylesheets()
                 .add(
@@ -169,6 +173,11 @@ public final class QuizWindows {
                                 .toExternalForm());
         stage.setTitle(name);
         stage.setScene(scene);
+        if (showing && !maximized) {
+            stage.setWidth(currentWidth);
+            stage.setHeight(currentHeight);
+        }
+        if (maximized) stage.setMaximized(true);
     }
 
     private void error(Label target, Throwable error) {
@@ -223,6 +232,7 @@ public final class QuizWindows {
         table.setPlaceholder(label("暂无记录"));
         table.getColumns().addAll(columns);
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+        table.setMinSize(0, 0);
         VBox.setVgrow(table, Priority.ALWAYS);
         return table;
     }
@@ -336,11 +346,15 @@ public final class QuizWindows {
         FlowPane filters = new FlowPane(10, 10, label("竞赛状态"), filter, label("知识分类"), categoryFilter, refreshButton);
         filters.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
         VBox listCard = new VBox(12, filters, all);
+        listCard.setMinWidth(0);
         listCard.setId("competition-list-card");
         listCard.getStyleClass().add("card");
         detail.setId("competition-detail-card");
+        detail.setMinWidth(0);
+        bannerFrame.setMinWidth(0);
         VBox.setVgrow(all, Priority.ALWAYS);
         GridPane wideContent = new GridPane();
+        wideContent.setMinSize(0, 0);
         wideContent.setId("competition-wide-grid");
         wideContent.setHgap(18);
         ColumnConstraints listColumn = new ColumnConstraints();
@@ -360,6 +374,7 @@ public final class QuizWindows {
         ScrollPane compactScroll = scroll(compactContent);
         compactScroll.setFitToHeight(false);
         StackPane content = new StackPane(wideContent);
+        content.setMinSize(0, 0);
         content.getStyleClass().add("lobby-content");
         BorderPane root = new BorderPane();
         Button signup = button("选手注册", () -> showPlayerAuth(true, ""));
@@ -368,9 +383,11 @@ public final class QuizWindows {
         root.setTop(header(label("知航空 · 爱祖国 · 向未来"), signup, login,
                 button("工作人员登录", () -> accountForm(true, false)), setup));
         VBox center = page(title("正在进行的航空知识竞赛"), label("发现竞赛、查看赛程，登录后即可报名参赛"), content);
+        center.setMinSize(0, 0);
         center.setMaxHeight(Double.MAX_VALUE);
         VBox.setVgrow(content, Priority.ALWAYS);
         StackPane centered = new StackPane(center);
+        centered.setMinSize(0, 0);
         centered.setAlignment(javafx.geometry.Pos.TOP_CENTER);
         root.setCenter(centered);
         root.setBottom(global);
@@ -965,6 +982,14 @@ public final class QuizWindows {
                 TilePane summary = new TilePane(14, 14, staffStat("全部竞赛", total, "当前已维护的赛事"), staffStat("待开赛", open, "报名及准备阶段"), staffStat("进行中", running, "正在进行的赛场"));
                 summary.setPrefColumns(3);
                 summary.setPrefTileWidth(180);
+                Runnable summaryVisibility =
+                        () -> {
+                            boolean visible = stage.getHeight() >= 720;
+                            summary.setManaged(visible);
+                            summary.setVisible(visible);
+                        };
+                stage.heightProperty().addListener((o, old, height) -> summaryVisibility.run());
+                summaryVisibility.run();
                 VBox content = page(summary, title("竞赛中心"), label("集中维护赛程、报名状态与比赛工作区"), actions, table); content.getStyleClass().add("staff-page"); return content;
             }
 
