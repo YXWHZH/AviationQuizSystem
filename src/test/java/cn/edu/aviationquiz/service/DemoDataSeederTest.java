@@ -67,7 +67,7 @@ class DemoDataSeederTest {
                                 new JdbcRegistrationDao(store), clock),
                         new ResultServiceImpl(new JdbcResultDao(store)));
         var player = service.login(false, "player01", PASSWORD_FOR_TESTS);
-        assertEquals(10, service.mine(player).size());
+        assertEquals(10, service.participatedCompetitions(player).size());
         assertEquals(3, service.history(player).size());
     }
 

@@ -203,7 +203,7 @@ class QuizWindowsTest {
         service.registrationState(staff, cid, "报名截止");
         String ga = service.addGroup(staff, cid, "A组", 1),
                 gb = service.addGroup(staff, cid, "B组", 2);
-        for (var r : service.people(staff, cid, false))
+        for (var r : service.participants(staff, cid, false))
             service.assign(staff, r.id(), r.username().equals("userA") ? ga : gb);
         String rid = service.addRound(staff, cid, "必答轮", "REQUIRED", 1, 120);
         String qid =

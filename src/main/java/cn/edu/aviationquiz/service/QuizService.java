@@ -178,20 +178,11 @@ public final class QuizService
         return competitionManagementService.participatedCompetitions(s.id());
     }
 
-    public synchronized List<CompetitionView> mine(Session s) {
-        return participatedCompetitions(s);
-    }
-
     @Override
     public synchronized List<ParticipantView> participants(
             Session s, String cid, boolean reserved) {
         auth(s, true);
         return registrationService.participants(cid, reserved);
-    }
-
-    public synchronized List<ParticipantView> people(
-            Session s, String cid, boolean reserved) {
-        return participants(s, cid, reserved);
     }
 
     @Override

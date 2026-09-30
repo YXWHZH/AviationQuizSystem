@@ -111,7 +111,7 @@ class QuizServiceTest {
         clock.millis += 1001;
         service.registrationState(staff, cid, "报名截止");
         List<String> groups = new ArrayList<>();
-        var registrations = service.people(staff, cid, false);
+        var registrations = service.participants(staff, cid, false);
         for (int i = 0; i < groupCount; i++) {
             String gid = service.addGroup(staff, cid, "组" + i, i + 1);
             groups.add(gid);
@@ -177,8 +177,10 @@ class QuizServiceTest {
         Session forged = new Session("fake", staff.id(), staff.username(), staff.name(), true);
         assertThrows(IllegalArgumentException.class, () -> service.questions(forged));
         service.logout(a);
-        assertThrows(IllegalArgumentException.class, () -> service.mine(a));
-        assertNotNull(service.mine(b));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> service.participatedCompetitions(a));
+        assertNotNull(service.participatedCompetitions(b));
         assertEquals(1, count("registration"));
         String hash =
                 store.transaction(
@@ -245,7 +247,7 @@ class QuizServiceTest {
         service.registrationState(staff, other, "报名截止");
         String gid = service.addGroup(staff, cid, "A", 1),
                 wrong = service.addGroup(staff, other, "B", 1),
-                rid = service.people(staff, cid, false).getFirst().id();
+                rid = service.participants(staff, cid, false).getFirst().id();
         assertThrows(IllegalArgumentException.class, () -> service.assign(staff, rid, wrong));
         service.assign(staff, rid, gid);
         assertThrows(IllegalArgumentException.class, () -> service.assign(staff, rid, gid));
